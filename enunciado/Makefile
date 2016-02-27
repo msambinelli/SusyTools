@@ -74,6 +74,7 @@ Enunciado: tarefa enunciado testes
 	rm -rf ./$@ ; \
 	mkdir -p ./$@/$(ID) ; \
 	[ -d "./aux" ] && cp -r ./aux ./$@/$(ID)/ ; \
+	[ -d "./images" ] && cp -r ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
 	cp -fr ./dados/* ./$@/$(ID)/dados/ ; \
 	cp $(PAGE) ./$@/$(ID)/ ; \
@@ -85,6 +86,7 @@ EnunciadoAberto: tarefa enunciado testes
 	rm -rf ./$@ ; \
 	mkdir -p ./$@/$(ID) ; \
 	[ -d "./aux" ] && cp -r ./aux ./$@/$(ID)/ ; \
+	[ -d "./images" ] && cp -r ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
 	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed -e 's/^ *//;s/ *$$//;s/[[,"\]\+]\?/ /g;'); do cp ./dados/arq$$i.* ./$@/$(ID)/dados/; done; \
 	cp $(PAGE) ./$@/$(ID)/ ; \
@@ -96,6 +98,7 @@ SusyFinal: tarefa enunciado testes
 	rm -rf ./$@ ; \
 	mkdir -p ./$@/$(ID) ; \
 	[ -d "./aux" ] && cp -r ./aux ./$@/$(ID)/ ; \
+	[ -d "./images" ] && cp -r ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/sols ; \
 	cp -fr ./sols/*.c ./$@/$(ID)/sols/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
