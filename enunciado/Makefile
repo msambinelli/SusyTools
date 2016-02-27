@@ -2,7 +2,7 @@
 MKFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
 ROOTDIR := $(notdir $(patsubst %/,%,$(dir $(MKFILE))))
 
-.PHONY: enunciado tarefa testes clean distclean all EnunciadoAberto SusyCoord SusyFinal
+.PHONY: enunciado tarefa testes clean distclean all Enunciado EnunciadoAberto SusyCoord SusyFinal
 
 CC = gcc
 CPPFLAGS =
@@ -19,7 +19,7 @@ SOL       = ./sols/sol
 TEST_IN   = $(wildcard dados/*.in)
 TEST_RES   = $(TEST_IN:.in=.res)
 
-all: enunciado EnunciadoAberto SusyCoord SusyFinal
+all: enunciado Enunciado EnunciadoAberto SusyCoord SusyFinal
 
 $(SOL): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) $(LOADLIBES) $(LDLIBS) -o $(SOL)
@@ -66,6 +66,17 @@ SusyCoord: tarefa enunciado testes
 	cp -fr ./dados/* ./$@/$(ID)/dados/ ; \
 	OPEN=$$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed -e 's/^ *//;s/ *$$//;s/\]//g;'); \
 	sed -e "s/^TASK_DESCRIPTION_PAGE:.*$$/TASK_DESCRIPTION_PAGE: None/;s/^TEST_CASES:.*$$/#TEST_CASES: []/;s/HIDDEN_TEST_CASES: *\[/HIDDEN_TEST_CASES: $$OPEN,/" tarefa.cfg >./$@/$(ID)/tarefa.cfg; \
+	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
+	cd ..; rm -rf ./$@/$(ID)
+
+Enunciado: tarefa enunciado testes
+	@echo "Compactando Enunciado: $@/$(ID).zip"; \
+	rm -rf ./$@ ; \
+	mkdir -p ./$@/$(ID) ; \
+	[ -d "./aux" ] && cp -r ./aux ./$@/$(ID)/ ; \
+	mkdir -p ./$@/$(ID)/dados ; \
+	cp -fr ./dados/* ./$@/$(ID)/dados/ ; \
+	cp $(PAGE) ./$@/$(ID)/ ; \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
 	cd ..; rm -rf ./$@/$(ID)
 
