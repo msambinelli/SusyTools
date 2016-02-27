@@ -1,0 +1,1 @@
+../enunciado/sols/lab00.c
