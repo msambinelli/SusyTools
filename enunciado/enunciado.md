@@ -1,10 +1,12 @@
 ### Instituto de Computação - Unicamp
 ### MC999 - Introdução à Computação
 
-Laboratório Nº !ID! - !TITLE! (Peso 1)
+Laboratório !ID! - !TITLE!
 =====================================
 
 Prazo de entrega: __!DEADLINE!__
+
+Peso: 1
 
 *Professor:* José da Silva  
 *Monitor:* Maria da Silva
