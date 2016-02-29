@@ -25,7 +25,14 @@ $(SOL): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) $(LOADLIBES) $(LDLIBS) -o $(SOL)
 
 %.res: %.in $(SOL)
-	$(SOL) <$< >$@
+	@echo -n "Gerando saída para $<: "; \
+        if output=$$(/usr/bin/time -f "%Us" $(SOL) <$< >$@); then \
+	  echo $$output; \
+        else \
+          tail $@; \
+          rm $@; \
+          exit 1; \
+        fi
 
 tarefa: tarefa.cfg
 	@echo "Lendo tarefa.cfg"
@@ -50,6 +57,7 @@ enunciado: tarefa testes enunciado.md md_head.html md_tail.html
 
 clean: tarefa
 	rm -f $(SOL) $(OBJECTS) $(PAGE)
+	rm -rf SusyCoord Enunciado EnunciadoAberto SusyFinal
 
 distclean: clean
 	rm -f $(TEST_RES)
