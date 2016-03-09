@@ -5,4 +5,12 @@ sols/sol
 EnunciadoAberto
 SusyCoord
 SusyFinal
-Enunciado
+EnunciadoCoord
+md_head.html
+md_tail.html
+md_content.html
+md_content.md
+dados/*.in
+dados/*.out
+dados/*.diff
+dados/*.res

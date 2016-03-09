@@ -124,5 +124,5 @@ Dica
 Leia o seguinte código, ele pode te auxiliar:
 
 ```C
-include("sols/lab00.c")
+include("sols/sol.c")
 ```
