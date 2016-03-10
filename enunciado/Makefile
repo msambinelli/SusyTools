@@ -110,9 +110,7 @@ dados/%.in: dados/%.pre | $(GENERATOR)
 
 dados/%.res: dados/%.in
 
-testes: $(TEST_PRE_IN) $(TEST_PRE_RES) $(TEST_PRE_OUT) $(TEST_OUT)
-
-%.out: %.in $(SOL)
+dados/%.out: dados/%.in $(SOL)
 	@echo -n "Gerando saída para $<: "; \
   if output=$$(/usr/bin/time -f "%Us" ./$(SOL) <$< 2>&1 >$@); then \
 		OUT="$@"; \
@@ -135,6 +133,8 @@ testes: $(TEST_PRE_IN) $(TEST_PRE_RES) $(TEST_PRE_OUT) $(TEST_OUT)
     rm $@; \
     exit 1; \
   fi;
+
+testes: $(TEST_PRE_IN) $(TEST_PRE_RES) $(TEST_PRE_OUT) $(TEST_OUT)
 
 tarefa: tarefa.cfg
 	@echo "Lendo tarefa.cfg"
