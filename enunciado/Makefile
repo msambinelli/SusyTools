@@ -171,7 +171,7 @@ md_content.html: md_content.md
 enunciado: tarefa md_head.html md_content.html md_tail.html
 	@echo "Criando $(PAGE) da Tarefa $(ID)"; \
 	cat md_head.html md_content.html md_tail.html | \
-	python -c "$${INCLUDE_PY}" | \
+	python2 -c "$${INCLUDE_PY}" | \
 	sed "s#!ID!#$(ID)#g;s#!TITLE!#$(TITLE)#g;s#!MAX_SUBMISSIONS!#$(MAX_SUBMISSIONS)#g;" >$(PAGE)
 
 clean: tarefa
