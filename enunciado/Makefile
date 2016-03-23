@@ -120,15 +120,16 @@ dados/%.out: dados/%.in $(SOL) /usr/bin/time
 	fi; \
 	if output=$$(/usr/bin/time -p ./$(SOL) <$< 2>&1 >$@ | grep real | awk '{{print $$2}}'); then \
 		OUT="$@"; \
+		WOUT="$${OUT%.out}.wrong_out"; \
+		DIFF="$${OUT%.out}.diff"; \
 		if [ -f "$${OUT%.out}.res" ]; then \
+			rm -f "$${WOUT}" "$${DIFF}"; \
 			if diff --suppress-common-lines "$${OUT}" "$${OUT%.out}.res" > "$${OUT%.out}.diff"; then \
-				printf "[ OK ] "; \
-				echo $$output; \
+				printf "[ OK ] %s\n" "$$output"; \
 			else \
-				echo "[FAIL]"; \
-				echo "See $${OUT%.out}.diff:"; \
-				tail -n 20 "$${OUT%.out}.diff"; \
-		    rm $@; \
+				printf "[FAIL] See %s:\n" "$${DIFF}"; \
+				tail -n 20 "$${DIFF}"; \
+				mv $@ "$${WOUT}"; \
 				exit 1; \
 			fi; \
 		else \
