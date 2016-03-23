@@ -20,6 +20,8 @@ GENSOURCES   = $(wildcard gen/*.c)
 GENOBJECTS   = $(GENSOURCES:.c=.o)
 GENERATOR = gen/gen
 
+.PRECIOUS: $(SOL) $(GENERATOR)
+
 TEST_IN   = $(wildcard dados/*.in)
 TEST_OUT  = $(TEST_IN:.in=.out)
 TEST_RES  = $(TEST_IN:.in=.res)
@@ -99,24 +101,28 @@ gen/%: gen/%.o
 	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 dados/%.in: dados/%.pre | $(GENERATOR)
-	@echo "Gerando teste com $<"; \
+	@printf "Gerando teste com $<: "; \
 	PRE="$<"; \
-	if ./$(GENERATOR) $< "$${PRE%.pre}.in" "$${PRE%.pre}.res"; then \
-		echo "[ OK ] "; \
+	if output=$$(./$(GENERATOR) $< "$${PRE%.pre}.in" "$${PRE%.pre}.res"); then \
+		echo "[ OK ]"; \
 	else \
 		echo "[FAIL]"; \
 		rm -f "$${PRE%.pre}.in" "$${PRE%.pre}.res"; \
-	fi
+	fi; \
+	[ -z "$$output"] || echo "$$output";
 
 dados/%.res: dados/%.in
 
-dados/%.out: dados/%.in $(SOL)
-	@echo -n "Gerando saída para $<: "; \
-  if output=$$(/usr/bin/time -f "%Us" ./$(SOL) <$< 2>&1 >$@); then \
+dados/%.out: dados/%.in $(SOL) /usr/bin/time
+	@printf "Gerando saida para $<: "; \
+	if [ ! -x "$(SOL)" ]; then \
+		echo "$(SOL) is not a executable"; \
+	fi; \
+	if output=$$(/usr/bin/time -p ./$(SOL) <$< 2>&1 >$@ | grep real | awk '{{print $$2}}'); then \
 		OUT="$@"; \
 		if [ -f "$${OUT%.out}.res" ]; then \
 			if diff --suppress-common-lines "$${OUT}" "$${OUT%.out}.res" > "$${OUT%.out}.diff"; then \
-				echo -n "[ OK ] "; \
+				printf "[ OK ] "; \
 				echo $$output; \
 			else \
 				echo "[FAIL]"; \
@@ -128,11 +134,11 @@ dados/%.out: dados/%.in $(SOL)
 		else \
 			echo $$output; \
 		fi; \
-  else \
-    tail $@; \
-    rm $@; \
-    exit 1; \
-  fi;
+	else \
+		tail $@; \
+		rm $@; \
+		exit 1; \
+	fi;
 
 testes: $(TEST_PRE_IN) $(TEST_PRE_RES) $(TEST_PRE_OUT) $(TEST_OUT)
 
@@ -154,10 +160,10 @@ tarefa: tarefa.cfg
 	$(eval MAX_SUBMISSIONS := $(shell grep '^MAX_SUBMISSIONS:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed -e 's/^ *//;s/ *$$//'))
 
 md_head.html:
-	@echo -n "$${HEAD_HTML}" >$@
+	@printf "%s" "$${HEAD_HTML}" >$@
 
 md_tail.html:
-	@echo -n "$${TAIL_HTML}" >$@
+	@printf "%s" "$${TAIL_HTML}" >$@
 
 md_content.md: testes enunciado.md
 	@echo "Processando enunciado.md"; \
@@ -186,9 +192,9 @@ SusyCoord: tarefa enunciado testes
 	rm -rf ./$@ ; \
 	mkdir -p ./$@/$(ID) ; \
 	mkdir -p ./$@/$(ID)/sols ; \
-	cp -fr ./sols/*.c ./$@/$(ID)/sols/ ; \
+	cp -fR ./sols/*.c ./$@/$(ID)/sols/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
-	cp -fr ./dados/*.in ./$@/$(ID)/dados/ ; \
+	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
 	OPEN=$$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed -e 's/^ *//;s/ *$$//;s/\]//g;'); \
 	sed -e "s/^TASK_DESCRIPTION_PAGE:.*$$/TASK_DESCRIPTION_PAGE: None/;\
 	s/^TEST_CASES:.*$$/#TEST_CASES: []/;\
@@ -202,11 +208,11 @@ EnunciadoCoord: tarefa enunciado testes
 	@echo "Compactando Enunciado: $@/$(ID).zip"; \
 	rm -rf ./$@ ; \
 	mkdir -p ./$@/$(ID) ; \
-	[ -d "./aux" ] && cp -r ./aux ./$@/$(ID)/ ; \
-	[ -d "./images" ] && cp -r ./images ./$@/$(ID)/ ; \
+	[ -d "./aux" ] && cp -R ./aux ./$@/$(ID)/ ; \
+	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
-	cp -fr ./dados/*.in ./$@/$(ID)/dados/ ; \
-	for i in ./dados/*.out; do r=$$(basename $$i); cp -fr "$$i" "./$@/$(ID)/dados/$${r%.out}.res"; done; \
+	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
+	for i in ./dados/*.out; do r=$$(basename $$i); cp -fR "$$i" "./$@/$(ID)/dados/$${r%.out}.res"; done; \
 	sed "s#!DEADLINE!#$(COORD_DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
 	cd ..; rm -rf ./$@/$(ID)
@@ -215,10 +221,10 @@ EnunciadoAberto: tarefa enunciado testes
 	@echo "Compactando Enunciado: $@/$(ID).zip"; \
 	rm -rf ./$@ ; \
 	mkdir -p ./$@/$(ID) ; \
-	[ -d "./aux" ] && cp -r ./aux ./$@/$(ID)/ ; \
-	[ -d "./images" ] && cp -r ./images ./$@/$(ID)/ ; \
+	[ -d "./aux" ] && cp -R ./aux ./$@/$(ID)/ ; \
+	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
-	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed -e 's/^ *//;s/ *$$//;s/[[,"\]\+]\?/ /g;'); do cp ./dados/arq$$i.in ./$@/$(ID)/dados/; cp ./dados/arq$$i.out ./$@/$(ID)/dados/arq$$i.res;  done; \
+	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed 's/\[/ /g;' | sed 's/\]/ /g;' | sed 's/[," ]\+/ /g;'); do cp ./dados/arq$$i.in ./$@/$(ID)/dados/; cp ./dados/arq$$i.out ./$@/$(ID)/dados/arq$$i.res;  done; \
 	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
 	cd ..; rm -rf ./$@/$(ID)
@@ -227,12 +233,12 @@ SusyFinal: tarefa enunciado testes
 	@echo "Criando pacote para alunos: $@/$(ID).zip"; \
 	rm -rf ./$@ ; \
 	mkdir -p ./$@/$(ID) ; \
-	[ -d "./aux" ] && cp -r ./aux ./$@/$(ID)/ ; \
-	[ -d "./images" ] && cp -r ./images ./$@/$(ID)/ ; \
+	[ -d "./aux" ] && cp -R ./aux ./$@/$(ID)/ ; \
+	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/sols ; \
-	cp -fr ./sols/*.c ./$@/$(ID)/sols/ ; \
+	cp -fR ./sols/*.c ./$@/$(ID)/sols/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
-	cp -fr ./dados/*.in ./$@/$(ID)/dados/ ; \
+	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
 	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
 	sed -e "s/^COORD_/#COORD_/;" tarefa.cfg >./$@/$(ID)/tarefa.cfg; \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
