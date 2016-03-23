@@ -1,1 +1,1 @@
-../enunciado/sols/lab00.c
+../enunciado/sols/sol.c

@@ -1,0 +1,54 @@
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      language: generic
+      sudo: required
+    - os: osx
+      osx_image: xcode7.3
+
+notifications:
+  email:
+    recipients:
+      - susytools@tiagofalcao.com
+    on_success: change
+    on_failure: always
+    on_start: false
+
+before_install:
+  - echo $LANG
+  - echo $LC_ALL
+  - uname -a
+  - env
+  - cc --version
+
+install:
+
+before_script:
+
+script:
+  - pushd enunciado
+  - make
+  - popd
+  - pushd solucao
+  - make
+  - popd
+
+after_success:
+
+
+after_failure:
+
+
+after_script:
+
+
+before_deployment:
+
+
+deployment:
+
+
+after_deployment:
+
+

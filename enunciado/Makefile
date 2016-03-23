@@ -1,13 +1,11 @@
 #!/usr/bin/make -f
 MKFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
 ROOTDIR := $(notdir $(patsubst %/,%,$(dir $(MKFILE))))
-
-.PHONY: enunciado tarefa testes clean distclean all EnunciadoCoord EnunciadoAberto SusyCoord SusyFinal
-.SUFFIX: .pre .in .out .res
+MAKEFLAGS += --no-builtin-rules
 
 CC = gcc
 CPPFLAGS =
-CFLAGS = -O3 -std=c99 -Werror -Wall -Wextra -Wpedantic
+CFLAGS = -O3 -std=c99 -Werror -Wall -Wextra -pedantic
 CXXFLAGS =
 LDFLAGS = -O3
 LDLIBS =
@@ -22,15 +20,18 @@ GENERATOR = gen/gen
 
 .PRECIOUS: $(SOL) $(GENERATOR)
 
-TEST_IN   = $(wildcard dados/*.in)
-TEST_OUT  = $(TEST_IN:.in=.out)
-TEST_RES  = $(TEST_IN:.in=.res)
-TEST_DIFF = $(TEST_IN:.in=.diff)
-
 TEST_PRE   = $(wildcard dados/*.pre)
 TEST_PRE_IN = $(TEST_PRE:.pre=.in)
 TEST_PRE_OUT = $(TEST_PRE:.pre=.out)
 TEST_PRE_RES = $(TEST_PRE:.pre=.res)
+
+TEST_IN   = $(filter-out $(TEST_PRE_IN),$(wildcard dados/*.in))
+TEST_OUT  = $(TEST_IN:.in=.out)
+TEST_RES  = $(TEST_IN:.in=.res)
+TEST_DIFF = $(TEST_IN:.in=.diff)
+
+.SUFFIX: .pre .in .out .res
+.PHONY: enunciado tarefa testes clean distclean all EnunciadoCoord EnunciadoAberto SusyCoord SusyFinal
 
 define INCLUDE_PY
 import re
@@ -88,19 +89,13 @@ export TAIL_HTML
 
 all: testes enunciado EnunciadoCoord EnunciadoAberto SusyCoord SusyFinal
 
-sols/%.o: sols/%.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+$(SOL): $(SOURCES)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(SOURCES) $(LOADLIBES) $(LDLIBS) -o $@
 
-sols/%: sols/%.o
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+$(GENERATOR): $(GENSOURCES)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(GENSOURCES) $(LOADLIBES) $(LDLIBS) -o $@
 
-gen/%.o: gen/%.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
-
-gen/%: gen/%.o
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
-dados/%.in: dados/%.pre | $(GENERATOR)
+$(TEST_PRE_IN): %.in: %.pre | $(GENERATOR)
 	@printf "Gerando teste com $<: "; \
 	PRE="$<"; \
 	if output=$$(./$(GENERATOR) $< "$${PRE%.pre}.in" "$${PRE%.pre}.res"); then \
@@ -111,9 +106,9 @@ dados/%.in: dados/%.pre | $(GENERATOR)
 	fi; \
 	[ -z "$$output"] || echo "$$output";
 
-dados/%.res: dados/%.in
+$(TEST_PRE_RES): %.res: %.in
 
-dados/%.out: dados/%.in $(SOL) /usr/bin/time
+$(TEST_OUT) $(TEST_PRE_OUT): %.out: %.in $(SOL) /usr/bin/time
 	@printf "Gerando saida para $<: "; \
 	if [ ! -x "$(SOL)" ]; then \
 		echo "$(SOL) is not a executable"; \

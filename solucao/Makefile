@@ -10,7 +10,7 @@ ROOTDIR := $(notdir $(patsubst %/,%,$(dir $(MKFILE))))
 
 CC = gcc
 CPPFLAGS =
-CFLAGS = -O3 -std=c99 -Werror -Wall -Wpedantic
+CFLAGS = -O3 -std=c99 -Werror -Wall -pedantic
 CXXFLAGS =
 LDFLAGS = -O3
 LDLIBS =
