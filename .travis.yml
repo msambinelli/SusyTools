@@ -33,6 +33,9 @@ script:
   - pushd solucao
   - make
   - popd
+  - pushd enunciado_2
+  - make
+  - popd
 
 after_success:
 

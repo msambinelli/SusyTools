@@ -95,7 +95,7 @@ $(SOL): $(SOURCES)
 $(GENERATOR): $(GENSOURCES)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(GENSOURCES) $(LOADLIBES) $(LDLIBS) -o $@
 
-$(TEST_PRE_IN): %.in: %.pre | $(GENERATOR)
+$(TEST_PRE_IN): %.in: %.pre $(GENERATOR)
 	@printf "Gerando teste com $<: "; \
 	PRE="$<"; \
 	if output=$$(./$(GENERATOR) $< "$${PRE%.pre}.in" "$${PRE%.pre}.res"); then \
@@ -177,11 +177,11 @@ enunciado: tarefa md_head.html md_content.html md_tail.html
 	sed "s#!ID!#$(ID)#g;s#!TITLE!#$(TITLE)#g;s#!MAX_SUBMISSIONS!#$(MAX_SUBMISSIONS)#g;" >$(PAGE)
 
 clean: tarefa
-	rm -f $(SOL) $(OBJECTS) $(PAGE) $(TEST_OUT) $(TEST_DIFF) $(GENERATOR) md_head.html md_content.md md_content.html md_tail.html
+	rm -f $(SOL) $(OBJECTS) $(PAGE) $(TEST_OUT) $(TEST_DIFF) md_head.html md_content.md md_content.html md_tail.html
 	rm -rf SusyCoord EnunciadoCoord EnunciadoAberto SusyFinal
 
 distclean: clean
-	rm -f $(TEST_PRE_IN) $(TEST_PRE_RES)
+	rm -f $(TEST_PRE_IN) $(TEST_PRE_RES) $(GENERATOR)
 
 SusyCoord: tarefa enunciado testes
 	@echo "Criando pacote para coordenação: $@/$(ID).zip"; \
