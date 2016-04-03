@@ -39,6 +39,7 @@ import sys
 inc = re.compile('(?P<pre>.*)include\(\"(?P<file>[^\"]+)\"\)(?P<pos>.*)')
 def printfile(file):
 	for line in file:
+		line = str(line)
 		m = inc.match(line)
 		if m is None:
 			sys.stdout.write(line)
@@ -165,7 +166,7 @@ md_tail.html:
 md_content.md: testes enunciado.md
 	@echo "Processando enunciado.md"; \
 	cat enunciado.md | \
-	sed 's/!TESTE!\([0-9]\+\)!/###### Teste \1\n\n* [Entrada](dados\/arq\1.in)\n\n    ```\ninclude("dados\/arq\1.in")\n    ```\n\n* [Saída](dados\/arq\1.res)\n\n    ```\ninclude("dados\/arq\1.out")\n    ```\n\n/g'  >$@
+	sed 's/!TESTE!\([0-9][0-9]*\)!/###### Teste \1\n\n* [Entrada](dados\/arq\1.in)\n\n    ```\ninclude("dados\/arq\1.in")\n    ```\n\n* [Saída](dados\/arq\1.res)\n\n    ```\ninclude("dados\/arq\1.out")\n    ```\n\n/g'  >$@
 
 md_content.html: md_content.md
 	@echo "Gerando md_content.html"; \
@@ -174,7 +175,7 @@ md_content.html: md_content.md
 enunciado: tarefa md_head.html md_content.html md_tail.html
 	@echo "Criando $(PAGE) da Tarefa $(ID)"; \
 	cat md_head.html md_content.html md_tail.html | \
-	python2 -c "$${INCLUDE_PY}" | \
+	/usr/bin/env python -c "$${INCLUDE_PY}" | \
 	sed "s#!ID!#$(ID)#g;s#!TITLE!#$(TITLE)#g;s#!MAX_SUBMISSIONS!#$(MAX_SUBMISSIONS)#g;" >$(PAGE)
 
 clean: tarefa
@@ -221,7 +222,7 @@ EnunciadoAberto: tarefa enunciado testes
 	[ -d "./aux" ] && cp -R ./aux ./$@/$(ID)/ ; \
 	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
-	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed 's/\[/ /g;' | sed 's/\]/ /g;' | sed 's/[," ]\+/ /g;'); do cp ./dados/arq$$i.in ./$@/$(ID)/dados/; cp ./dados/arq$$i.out ./$@/$(ID)/dados/arq$$i.res;  done; \
+	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed 's/\[/ /g;' | sed 's/\]/ /g;' | sed 's/[", ][", ]*/ /g;'); do cp ./dados/arq$$i.in ./$@/$(ID)/dados/; cp ./dados/arq$$i.out ./$@/$(ID)/dados/arq$$i.res;  done; \
 	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
 	cd ..; rm -rf ./$@/$(ID)

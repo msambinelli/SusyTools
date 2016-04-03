@@ -20,11 +20,20 @@
       8, 7, 6, 5, 4, 3, 2, 1, 0
 
 #define SCANF(fmt, ...)                                                        \
-  if (scanf(fmt, ##__VA_ARGS__) != PP_NARG(__VA_ARGS__)) {                     \
+  if (scanf(fmt, __VA_ARGS__) != PP_NARG(__VA_ARGS__)) {                       \
     printf("Read error at line number %d in %s(%s)\n", __LINE__, __func__,     \
            __FILE__);                                                          \
     exit(1);                                                                   \
   }
+
+#define FSCANF(file, fmt, ...)                                                 \
+  if (fscanf(file, fmt, __VA_ARGS__) != PP_NARG(__VA_ARGS__)) {                \
+    printf("Read error at line number %d in %s(%s)\n", __LINE__, __func__,     \
+           __FILE__);                                                          \
+    exit(1);                                                                   \
+  }
+
+#define I64(x) ((int64_t) x)
 
 #define CHECKINT32(x)                                                          \
   if (x > INT32_MAX || x < INT32_MIN) {                                        \
@@ -36,7 +45,7 @@
 #define CHECKINT(x, blimit, tlimit)                                            \
   CHECKINT32(x);                                                               \
   if (x < blimit || x > tlimit) {                                              \
-    printf("Limit! %" PRId64 " [%li,%li] at line number %d in %s(%s)\n", x,    \
+    printf("Limit! %" PRId64 " [%" PRId64 ",%" PRId64 "] at line number %d in %s(%s)\n", x,    \
            blimit, tlimit, __LINE__, __func__, __FILE__);                      \
     exit(1);                                                                   \
   }
@@ -50,8 +59,8 @@
 
 /******************************************************************************/
 
-#define BLIMIT 0L
-#define TLIMIT 100000L
+#define BLIMIT I64(0)
+#define TLIMIT I64(100000)
 #define CHECKINTLIMIT(x) CHECKINT(x, BLIMIT, TLIMIT)
 
 /******************************************************************************/
