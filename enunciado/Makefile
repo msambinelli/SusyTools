@@ -211,6 +211,7 @@ EnunciadoCoord: tarefa enunciado testes
 	mkdir -p ./$@/$(ID)/dados ; \
 	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
 	for i in ./dados/*.out; do r=$$(basename $$i); cp -fR "$$i" "./$@/$(ID)/dados/$${r%.out}.res"; done; \
+	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} ./$@/$(ID)/ \; ; \
 	sed "s#!DEADLINE!#$(COORD_DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
 	cd ..; rm -rf ./$@/$(ID)
@@ -223,6 +224,7 @@ EnunciadoAberto: tarefa enunciado testes
 	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
 	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed 's/\[/ /g;' | sed 's/\]/ /g;' | sed 's/[", ][", ]*/ /g;'); do cp ./dados/arq$$i.in ./$@/$(ID)/dados/; cp ./dados/arq$$i.out ./$@/$(ID)/dados/arq$$i.res;  done; \
+	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} ./$@/$(ID)/ \; ; \
 	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
 	cd ..; rm -rf ./$@/$(ID)
@@ -237,6 +239,7 @@ SusyFinal: tarefa enunciado testes
 	cp -fR ./sols/*.c ./$@/$(ID)/sols/ ; \
 	mkdir -p ./$@/$(ID)/dados ; \
 	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
+	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} ./$@/$(ID)/ \; ; \
 	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
 	sed -e "s/^COORD_/#COORD_/;" tarefa.cfg >./$@/$(ID)/tarefa.cfg; \
 	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
