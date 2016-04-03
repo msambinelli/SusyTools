@@ -103,8 +103,9 @@ $(TEST_PRE_IN): %.in: %.pre $(GENERATOR)
 	else \
 		echo "[FAIL]"; \
 		rm -f "$${PRE%.pre}.in" "$${PRE%.pre}.res"; \
-	fi; \
-	[ -z "$$output"] || echo "$$output";
+		[ -z "$$output" ] || echo "$$output"; \
+		exit 1; \
+	fi;
 
 $(TEST_PRE_RES): %.res: %.in
 
