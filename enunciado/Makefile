@@ -117,12 +117,14 @@ $(TEST_OUT) $(TEST_PRE_OUT): %.out: %.in $(SOL) /usr/bin/time
 	fi; \
 	if output=$$(/usr/bin/time -p ./$(SOL) <$< 2>&1 >$@ | grep real | awk '{{print $$2}}'); then \
 		OUT="$@"; \
+		RES="$${OUT%.out}.res"; \
 		WOUT="$${OUT%.out}.wrong_out"; \
 		DIFF="$${OUT%.out}.diff"; \
-		if [ -f "$${OUT%.out}.res" ]; then \
+		if [ -f "$${RES}" ]; then \
 			rm -f "$${WOUT}" "$${DIFF}"; \
-			if diff --suppress-common-lines "$${OUT}" "$${OUT%.out}.res" > "$${OUT%.out}.diff"; then \
+			if diff --suppress-common-lines "$${OUT}" "$${RES}" > "$${DIFF}"; then \
 				printf "[ OK ] %s\n" "$$output"; \
+				rm "$${DIFF}"; \
 			else \
 				printf "[FAIL] See %s:\n" "$${DIFF}"; \
 				tail -n 20 "$${DIFF}"; \
