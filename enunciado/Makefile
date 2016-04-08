@@ -45,7 +45,7 @@ def printfile(file):
 			sys.stdout.write(line)
 		else:
 			sys.stdout.write(m.group('pre'))
-			printfile(open(m.group('file'), 'rb'))
+			printfile(open(m.group('file'), 'r'))
 			sys.stdout.write(m.group('pos'))
 printfile(sys.stdin)
 endef
