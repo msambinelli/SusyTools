@@ -5,7 +5,7 @@ MAKEFLAGS += --no-builtin-rules
 
 CC = gcc
 CPPFLAGS =
-CFLAGS = -O3 -std=c99 -Werror -Wall -Wextra -pedantic
+CFLAGS = -O3 -std=c99 -Werror -Wall -Wextra -pedantic -Wunused-result -Wno-error=unused-result
 CXXFLAGS =
 LDFLAGS = -O3
 LDLIBS =
