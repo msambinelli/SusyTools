@@ -172,12 +172,13 @@ md_content.md: testes enunciado.md
 
 md_content.html: md_content.md
 	@echo "Gerando md_content.html"; \
-	cat $< | curl https://api.github.com/markdown/raw -s -XPOST -H Content-Type:text/x-markdown --data-binary @- >$@
+	cat $< | \
+	/usr/bin/env python -c "$${INCLUDE_PY}" | \
+	curl https://api.github.com/markdown/raw -s -XPOST -H Content-Type:text/x-markdown --data-binary @- >$@
 
 enunciado: tarefa md_head.html md_content.html md_tail.html
 	@echo "Criando $(PAGE) da Tarefa $(ID)"; \
 	cat md_head.html md_content.html md_tail.html | \
-	/usr/bin/env python -c "$${INCLUDE_PY}" | \
 	sed "s#!ID!#$(ID)#g;s#!TITLE!#$(TITLE)#g;s#!MAX_SUBMISSIONS!#$(MAX_SUBMISSIONS)#g;" >$(PAGE)
 
 clean: tarefa
