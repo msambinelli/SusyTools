@@ -1,6 +1,7 @@
 #!/usr/bin/make -f
 MKFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
-ROOTDIR := $(notdir $(patsubst %/,%,$(dir $(MKFILE))))
+ROOTDIR := $(shell dirname "$(MKFILE)")
+DIRNAME := $(shell basename "$(ROOTDIR)")
 MAKEFLAGS += --no-builtin-rules
 
 CC = gcc
@@ -189,61 +190,77 @@ distclean: clean
 	rm -f $(TEST_PRE_IN) $(TEST_PRE_RES) $(GENERATOR)
 
 SusyCoord: tarefa enunciado testes
-	@echo "Criando pacote para coordenação: $@/$(ID).zip"; \
-	rm -rf ./$@ ; \
-	mkdir -p ./$@/$(ID) ; \
-	mkdir -p ./$@/$(ID)/sols ; \
-	cp -fR ./sols/*.c ./$@/$(ID)/sols/ ; \
-	mkdir -p ./$@/$(ID)/dados ; \
-	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
+	@TMPDIR=$$(mktemp -d); \
+	cd "$(ROOTDIR)" ; \
+	echo "Criando pacote para coordenação: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
+	mkdir -p ./$@/ ; \
+	rm -rf ./$@/$(ID).zip ; \
+	mkdir -p $${TMPDIR}/$(ID) ; \
+	mkdir -p $${TMPDIR}/$(ID)/sols ; \
+	cp -fR ./sols/*.c $${TMPDIR}/$(ID)/sols/ ; \
+	mkdir -p $${TMPDIR}/$(ID)/dados ; \
+	cp -fR ./dados/*.in $${TMPDIR}/$(ID)/dados/ ; \
 	OPEN=$$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed -e 's/^ *//;s/ *$$//;s/\]//g;'); \
 	sed -e "s/^TASK_DESCRIPTION_PAGE:.*$$/TASK_DESCRIPTION_PAGE: None/;\
 	s/^TEST_CASES:.*$$/#TEST_CASES: []/;\
 	s/HIDDEN_TEST_CASES: *\[/HIDDEN_TEST_CASES: $$OPEN,/;\
 	s/^START_/#START_/;s/^FINAL_/#FINAL_/;\
-	s/^COORD_START_/START_/;s/^COORD_FINAL_/FINAL_/;" tarefa.cfg >./$@/$(ID)/tarefa.cfg; \
-	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
-	cd ..; rm -rf ./$@/$(ID)
+	s/^COORD_START_/START_/;s/^COORD_FINAL_/FINAL_/;" tarefa.cfg >$${TMPDIR}/$(ID)/tarefa.cfg; \
+	cd $${TMPDIR}/ ; \
+	zip -q -r ./$(ID).zip $(ID) ; \
+	cd "$(ROOTDIR)" ; \
+	mv $${TMPDIR}/$(ID).zip ./$@/$(ID).zip ;
 
 EnunciadoCoord: tarefa enunciado testes
-	@echo "Compactando Enunciado: $@/$(ID).zip"; \
-	rm -rf ./$@ ; \
-	mkdir -p ./$@/$(ID) ; \
-	[ -d "./aux" ] && cp -R ./aux ./$@/$(ID)/ ; \
-	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
-	mkdir -p ./$@/$(ID)/dados ; \
-	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
-	for i in ./dados/*.out; do r=$$(basename $$i); cp -fR "$$i" "./$@/$(ID)/dados/$${r%.out}.res"; done; \
-	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} ./$@/$(ID)/ \; ; \
-	sed "s#!DEADLINE!#$(COORD_DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
-	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
-	cd ..; rm -rf ./$@/$(ID)
+	@TMPDIR=$$(mktemp -d); \
+	cd "$(ROOTDIR)" ; \
+	echo "Compactando Enunciado: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
+	mkdir -p ./$@/ ; \
+	rm -rf ./$@/$(ID).zip ; \
+	mkdir -p $${TMPDIR}/$(ID) ; \
+	[ -d "./aux" ] && cp -R ./aux $${TMPDIR}/$(ID)/ ; \
+	mkdir -p $${TMPDIR}/$(ID)/dados ; \
+	cp -fR ./dados/*.in $${TMPDIR}/$(ID)/dados/ ; \
+	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} $${TMPDIR}/$(ID)/ \; ; \
+	sed "s#!DEADLINE!#$(COORD_DEADLINE)#g;" $(PAGE) >$${TMPDIR}/$(ID)/$(PAGE); \
+	cd $${TMPDIR}/ ; \
+	zip -q -r ./$(ID).zip $(ID) ; \
+	cd "$(ROOTDIR)" ; \
+	mv $${TMPDIR}/$(ID).zip ./$@/$(ID).zip ;
 
 EnunciadoAberto: tarefa enunciado testes
-	@echo "Compactando Enunciado: $@/$(ID).zip"; \
-	rm -rf ./$@ ; \
-	mkdir -p ./$@/$(ID) ; \
-	[ -d "./aux" ] && cp -R ./aux ./$@/$(ID)/ ; \
-	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
-	mkdir -p ./$@/$(ID)/dados ; \
-	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed 's/\[/ /g;' | sed 's/\]/ /g;' | sed 's/[", ][", ]*/ /g;'); do cp ./dados/arq$$i.in ./$@/$(ID)/dados/; cp ./dados/arq$$i.out ./$@/$(ID)/dados/arq$$i.res;  done; \
-	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} ./$@/$(ID)/ \; ; \
-	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
-	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
-	cd ..; rm -rf ./$@/$(ID)
+	@TMPDIR=$$(mktemp -d); \
+	cd "$(ROOTDIR)" ; \
+	echo "Compactando Enunciado: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
+	mkdir -p ./$@/ ; \
+	rm -rf ./$@/$(ID).zip ; \
+	mkdir -p $${TMPDIR}/$(ID) ; \
+	[ -d "./aux" ] && cp -R ./aux $${TMPDIR}/$(ID)/ ; \
+	mkdir -p $${TMPDIR}/$(ID)/dados ; \
+	for i in $$(grep '^TEST_CASES:' tarefa.cfg | cut -f 1 -d'#' | cut -f2- -d':' | sed 's/\[/ /g;' | sed 's/\]/ /g;' | sed 's/[", ][", ]*/ /g;'); do cp ./dados/arq$$i.in $${TMPDIR}/$(ID)/dados/; cp ./dados/arq$$i.out $${TMPDIR}/$(ID)/dados/arq$$i.res;  done; \
+	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} $${TMPDIR}/$(ID)/ \; ; \
+	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >$${TMPDIR}/$(ID)/$(PAGE); \
+	cd $${TMPDIR}/ ; \
+	zip -q -r ./$(ID).zip $(ID) ; \
+	cd "$(ROOTDIR)" ; \
+	mv $${TMPDIR}/$(ID).zip ./$@/$(ID).zip ;
 
 SusyFinal: tarefa enunciado testes
-	@echo "Criando pacote para alunos: $@/$(ID).zip"; \
-	rm -rf ./$@ ; \
-	mkdir -p ./$@/$(ID) ; \
-	[ -d "./aux" ] && cp -R ./aux ./$@/$(ID)/ ; \
-	[ -d "./images" ] && cp -R ./images ./$@/$(ID)/ ; \
-	mkdir -p ./$@/$(ID)/sols ; \
-	cp -fR ./sols/*.c ./$@/$(ID)/sols/ ; \
-	mkdir -p ./$@/$(ID)/dados ; \
-	cp -fR ./dados/*.in ./$@/$(ID)/dados/ ; \
-	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} ./$@/$(ID)/ \; ; \
-	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >./$@/$(ID)/$(PAGE); \
-	sed -e "s/^COORD_/#COORD_/;" tarefa.cfg >./$@/$(ID)/tarefa.cfg; \
-	cd ./$@/ && zip -q -r ./$(ID).zip $(ID) ; \
-	cd ..; rm -rf ./$@/$(ID)
+	@TMPDIR=$$(mktemp -d); \
+	cd "$(ROOTDIR)" ; \
+	echo "Criando pacote para alunos: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
+	mkdir -p ./$@/ ; \
+	rm -rf ./$@/$(ID).zip ; \
+	mkdir -p $${TMPDIR}/$(ID) ; \
+	[ -d "./aux" ] && cp -R ./aux $${TMPDIR}/$(ID)/ ; \
+	mkdir -p $${TMPDIR}/$(ID)/sols ; \
+	cp -fR ./sols/*.c $${TMPDIR}/$(ID)/sols/ ; \
+	mkdir -p $${TMPDIR}/$(ID)/dados ; \
+	cp -fR ./dados/*.in $${TMPDIR}/$(ID)/dados/ ; \
+	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} $${TMPDIR}/$(ID)/ \; ; \
+	sed "s#!DEADLINE!#$(DEADLINE)#g;" $(PAGE) >$${TMPDIR}/$(ID)/$(PAGE); \
+	sed -e "s/^COORD_/#COORD_/;" tarefa.cfg >$${TMPDIR}/$(ID)/tarefa.cfg; \
+	cd $${TMPDIR}/ ; \
+	zip -q -r ./$(ID).zip $(ID) ; \
+	cd "$(ROOTDIR)" ; \
+	mv $${TMPDIR}/$(ID).zip ./$@/$(ID).zip ;
