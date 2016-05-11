@@ -196,6 +196,7 @@ SusyCoord: tarefa enunciado testes
 	mkdir -p ./$@/ ; \
 	rm -rf ./$@/$(ID).zip ; \
 	mkdir -p $${TMPDIR}/$(ID) ; \
+	[ -d "./aux" ] && cp -R ./aux $${TMPDIR}/$(ID)/ ; \
 	mkdir -p $${TMPDIR}/$(ID)/sols ; \
 	cp -fR ./sols/*.c $${TMPDIR}/$(ID)/sols/ ; \
 	mkdir -p $${TMPDIR}/$(ID)/dados ; \
@@ -221,6 +222,7 @@ EnunciadoCoord: tarefa enunciado testes
 	[ -d "./aux" ] && cp -R ./aux $${TMPDIR}/$(ID)/ ; \
 	mkdir -p $${TMPDIR}/$(ID)/dados ; \
 	cp -fR ./dados/*.in $${TMPDIR}/$(ID)/dados/ ; \
+	for i in ./dados/*.in ; do cp $${i%.in}.out $${TMPDIR}/$(ID)/$${i%.in}.res;  done; \
 	EXT="png"; find . -mindepth 1 -maxdepth 1 -type f -name '*.png' -exec cp {} $${TMPDIR}/$(ID)/ \; ; \
 	sed "s#!DEADLINE!#$(COORD_DEADLINE)#g;" $(PAGE) >$${TMPDIR}/$(ID)/$(PAGE); \
 	cd $${TMPDIR}/ ; \
