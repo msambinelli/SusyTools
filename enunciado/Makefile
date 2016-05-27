@@ -10,6 +10,7 @@ CFLAGS = -O3 -std=c99 -Werror -Wall -Wextra -pedantic -Wunused-result -Wno-error
 CXXFLAGS =
 LDFLAGS = -O3
 LDLIBS =
+MKTEMP = mktemp -d 2>/dev/null || mktemp -d -t 'enunc'
 
 SOURCES   = $(wildcard sols/*.c)
 OBJECTS   = $(SOURCES:.c=.o)
@@ -190,7 +191,7 @@ distclean: clean
 	rm -f $(TEST_PRE_IN) $(TEST_PRE_RES) $(GENERATOR)
 
 SusyCoord: tarefa enunciado testes
-	@TMPDIR=$$(mktemp -d); \
+	@TMPDIR=$$($(MKTEMP)); \
 	cd "$(ROOTDIR)" ; \
 	echo "Criando pacote para coordenação: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
 	mkdir -p ./$@/ ; \
@@ -213,7 +214,7 @@ SusyCoord: tarefa enunciado testes
 	mv $${TMPDIR}/$(ID).zip ./$@/$(ID).zip ;
 
 EnunciadoCoord: tarefa enunciado testes
-	@TMPDIR=$$(mktemp -d); \
+	@TMPDIR=$$($(MKTEMP)); \
 	cd "$(ROOTDIR)" ; \
 	echo "Compactando Enunciado: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
 	mkdir -p ./$@/ ; \
@@ -231,7 +232,7 @@ EnunciadoCoord: tarefa enunciado testes
 	mv $${TMPDIR}/$(ID).zip ./$@/$(ID).zip ;
 
 EnunciadoAberto: tarefa enunciado testes
-	@TMPDIR=$$(mktemp -d); \
+	@TMPDIR=$$($(MKTEMP)); \
 	cd "$(ROOTDIR)" ; \
 	echo "Compactando Enunciado: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
 	mkdir -p ./$@/ ; \
@@ -248,7 +249,7 @@ EnunciadoAberto: tarefa enunciado testes
 	mv $${TMPDIR}/$(ID).zip ./$@/$(ID).zip ;
 
 SusyFinal: tarefa enunciado testes
-	@TMPDIR=$$(mktemp -d); \
+	@TMPDIR=$$($(MKTEMP)); \
 	cd "$(ROOTDIR)" ; \
 	echo "Criando pacote para alunos: $@/$(ID).zip ($${TMPDIR}/$(ID))"; \
 	mkdir -p ./$@/ ; \
