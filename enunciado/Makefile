@@ -60,6 +60,7 @@ define HEAD_HTML
 	<meta http-equiv='content-type' content='text/html; charset=utf-8'>
 	<title>Laboratório !ID!</title>
         <meta name='viewport' content='width=device-width, initial-scale=1'>
+	<link href='https://fonts.googleapis.com/css?family=Noto+Sans:400,700,400italic' rel='stylesheet' type='text/css'>
 	<link rel='stylesheet' href='https://sindresorhus.com/github-markdown-css/github-markdown.css'>
 	<style>
 	    .markdown-body {
@@ -68,6 +69,7 @@ define HEAD_HTML
 		max-width: 980px;
 		margin: 0 auto;
 		padding: 45px;
+		font-family: 'Noto Sans', sans-serif;
 	    }
 	    .markdown-body h6 { margin-bottom: 0; }
 	    .markdown-body h6 + ul li {
