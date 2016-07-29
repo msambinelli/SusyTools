@@ -1,0 +1,1 @@
+../com_gerador_c/enunciado.md

@@ -1,0 +1,709 @@
+#!/usr/bin/env python3
+
+import os
+import os.path
+import io
+import tempfile
+import subprocess
+import difflib
+import re
+import sys
+import urllib.request
+import mimetypes
+import datetime
+
+fail = False
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+def print_header(msg):
+    print(bcolors.HEADER + "---------------------------------")
+    print(msg + bcolors.ENDC)
+
+def print_ok(msg=" OK "):
+    print(bcolors.OKBLUE + msg + bcolors.ENDC)
+
+def print_error(msg=None):
+    global fail
+    fail = True
+    if msg:
+        print(bcolors.FAIL + "ERRO -", msg + bcolors.ENDC)
+    else:
+        print(bcolors.FAIL + "ERRO" + bcolors.ENDC)
+
+def print_warning(msg):
+    print(bcolors.WARNING + msg + bcolors.ENDC)
+
+def print_check(msg):
+    print(msg+": ", end="")
+
+
+# Get the directory of this script
+script_dir = os.path.dirname(os.path.realpath(__file__))
+cur_dir = os.getcwd()
+
+# Arguments
+import argparse
+parser = argparse.ArgumentParser(description='Gerador do enunciado para o Susy.')
+parser.add_argument('directory', metavar='directory', type=str, nargs='?',
+                    default=cur_dir,
+                    help='Diretório do enunciado')
+parser.add_argument('--keep', action='store_true',
+                    help='Não excluir arquivos temporários')
+parser.add_argument('--seq', action='store_true',
+                    help='Executar sequencialmente')
+args = parser.parse_args()
+
+workdir = args.directory
+print_header("Trabalhando o Enunciado")
+print_ok(workdir)
+
+
+CC = ["gcc"]
+CPPFLAGS = []
+CFLAGS = ["-O3", "-std=c99", "-Werror", "-Wall", "-Wextra", "-pedantic", "-Wunused-result", "-Wno-error=unused-result"]
+LDFLAGS = []
+LDLIBS = ["-lm"]
+
+HTML_HEADER = """<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv='content-type' content='text/html; charset=utf-8'>
+    <title>Laboratório !ID!</title>
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link href='https://fonts.googleapis.com/css?family=Noto+Sans:400,700,400italic' rel='stylesheet' type='text/css'>
+    <link rel='stylesheet' href='https://sindresorhus.com/github-markdown-css/github-markdown.css'>
+    <style>
+        .markdown-body {
+        box-sizing: border-box;
+        min-width: 200px;
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 45px;
+        font-family: 'Noto Sans', sans-serif;
+        }
+        .markdown-body h6 { margin-bottom: 0; }
+        .markdown-body h6 + ul li {
+        display: inline-block;
+        width: 100%;
+        max-width: 426px;
+        vertical-align: top;
+        }
+    </style>
+</head>
+<body>
+    <article class='markdown-body'>
+"""
+HTML_TAIL = """
+    </article>
+</body>
+</html>
+"""
+
+# Detecting testes
+tests = dict()
+
+tests["open"] = list()
+tests["gopen"] = list()
+tests["ropen"] = list()
+d = os.path.join(workdir, "tests", "open")
+if os.path.isdir(d):
+    for file in os.listdir(d):
+        filename, file_extension = os.path.splitext(file)
+        if not filename.startswith("arq"):
+            print("Ignoring open test:", file)
+        filename = filename[3:]
+        if file_extension == ".pre":
+            tests["gopen"].append(filename)
+        elif file_extension == ".in":
+            tests["open"].append(filename)
+        elif file_extension == ".out":
+            tests["ropen"].append(filename)
+    for filename in tests["open"]:
+        if filename in tests["gopen"]:
+            print("Atenção: O teste aberto", filename, "será sobrescrito.")
+            tests["open"].remove(filename)
+    for filename in tests["ropen"]:
+        if filename in tests["gopen"]:
+            print("Atenção: A resposta aberta", filename, "será sobrescrita.")
+            tests["ropen"].remove(filename)
+        elif filename not in tests["open"]:
+            print("Atenção: A resposta aberta", filename, "será ignorada.")
+            tests["ropen"].remove(filename)
+
+tests["hidden"] = list()
+tests["ghidden"] = list()
+tests["rhidden"] = list()
+d = os.path.join(workdir, "tests", "hidden")
+if os.path.isdir(d):
+    for file in os.listdir(d):
+        filename, file_extension = os.path.splitext(file)
+        if not filename.startswith("arq"):
+            print("Ignoring hidden test:", file)
+        filename = filename[3:]
+        if filename in tests["open"] or filename in tests["gopen"]:
+            print("Atenção: O teste fechado", filename, "será inogrado.")
+        elif file_extension == ".pre":
+            tests["ghidden"].append(filename)
+        elif file_extension == ".in":
+            tests["hidden"].append(filename)
+    for filename in tests["hidden"]:
+        if filename in tests["ghidden"]:
+            print("Atenção: O teste fechado", filename, "será sobrescrito.")
+            tests["hidden"].remove(filename)
+    for filename in tests["rhidden"]:
+        if filename in tests["ghidden"]:
+            print("Atenção: A resposta fechada", filename, "será sobrescrita.")
+            tests["rhidden"].remove(filename)
+        elif filename not in tests["hidden"]:
+            print("Atenção: A resposta fechada", filename, "será ignorada.")
+            tests["rhidden"].remove(filename)
+
+for key, value in tests.items():
+    value.sort()
+#print(tests)
+print("Testes estáticos encontrados")
+print_check("Abertos")
+print_ok(",".join(tests["open"]))
+print_check("Fechados")
+print_ok(",".join(tests["hidden"]))
+
+print("Testes encontrados")
+print_check("Abertos")
+print_ok(",".join(tests["gopen"]))
+print_check("Fechados")
+print_ok(",".join(tests["ghidden"]))
+
+# Temporary Directory
+print_header("Diretório Temporário")
+if args.keep:
+    tmpdir = tempfile.mkdtemp(prefix="SusyTools_")
+    print_ok(tmpdir)
+    print_warning("Não será excluído")
+else:
+    tmpdir_obj = tempfile.TemporaryDirectory(prefix="SusyTools_")
+    tmpdir = tmpdir_obj.name
+    print_ok(tmpdir)
+
+# Creator
+if tests["gopen"] or tests["ghidden"]:
+    print_check("Conferindo gerador de testes")
+    x = os.path.join(workdir, "tests", "generator", "generator")
+    if not os.path.isfile(x) or not os.access(x, os.X_OK):
+        d = os.path.join(workdir, "tests", "generator")
+        x = os.path.join(tmpdir, "generator")
+
+        files = list()
+        for file in os.listdir(d):
+            if file.endswith(".c"):
+                files.append(file)
+        if not files:
+            print_error("Falta código do gerador de testes.")
+            exit()
+
+        command = list()
+        command.extend(CC)
+        command.extend(CPPFLAGS)
+        command.extend(CFLAGS)
+        command.extend(LDFLAGS)
+        command.extend(files)
+        command.extend(LDLIBS)
+        command.append("-o"+x)
+
+        comp = subprocess.Popen(command, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        comp.wait()
+        if comp.returncode:
+            print_error("Compilação do gerador falhou.")
+            print(str(comp.stdout.read(), 'utf-8'))
+            exit()
+    print_ok()
+
+    if not os.path.isfile(x) or not os.access(x, os.X_OK):
+        print_error("Erro: Falta gerador para testes.")
+        exit()
+
+# Tests
+
+import shutil
+d = os.path.join(tmpdir, "tests")
+os.mkdir(d)
+
+if tests["open"] or tests["ropen"] or tests["hidden"] or tests["rhidden"]:
+    print_check("Copiando testes estáticos")
+    for file in tests["open"]:
+        shutil.copy(os.path.join(workdir, "tests", "open", "arq" + file + ".in"), d)
+    for file in tests["ropen"]:
+        shutil.copy(os.path.join(workdir, "tests", "open", "arq" + file + ".out"), d)
+    for file in tests["hidden"]:
+        shutil.copy(os.path.join(workdir, "tests", "hidden", "arq" + file + ".in"), d)
+    for file in tests["rhidden"]:
+        shutil.copy(os.path.join(workdir, "tests", "hidden", "arq" + file + ".out"), d)
+    print_ok()
+
+def wait_gentest(p, data):
+    print_check("Teste " + data["filename"])
+    p.wait(timeout=60)
+    if p.returncode:
+        print_error()
+    else:
+        print_ok()
+    print(str(p.stdout.read(), 'utf-8'))
+
+def run_gentest(t, filename, wait_list):
+    global fail
+    prefile = os.path.join(workdir, "tests", t, "arq" + filename + ".pre")
+    infile = os.path.join(d, "arq" + filename + ".in")
+    outfile = os.path.join(d, "arq" + filename + ".out")
+    errfile = os.path.join(d, "arq" + filename + ".err")
+    p = subprocess.Popen([x, prefile, infile, outfile, errfile], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    data = dict()
+    data["filename"] = filename
+    data["pre"] = prefile
+    data["in"] = infile
+    data["out"] = outfile
+    data["err"] = errfile
+    if args.seq:
+        wait_gentest(p, data)
+    else:
+        wait_list.append((p, data))
+
+
+if tests["gopen"] or tests["ghidden"]:
+    print_header("Gerando testes")
+
+    wait_list = list()
+
+    while tests["gopen"]:
+        filename = tests["gopen"].pop(0)
+        run_gentest("open", filename, wait_list)
+        tests["open"].append(filename)
+    del(tests["gopen"])
+    tests["open"].sort()
+
+    while tests["ghidden"]:
+        filename = tests["ghidden"].pop(0)
+        run_gentest("hidden", filename, wait_list)
+        tests["hidden"].append(filename)
+    del(tests["ghidden"])
+    tests["hidden"].sort()
+
+    for p in wait_list:
+        wait_gentest(*p)
+
+if fail:
+    exit()
+
+# Solution
+
+print_header("Solução")
+
+d = os.path.join(workdir, "solution")
+x = os.path.join(tmpdir, "solution")
+files = list()
+for file in os.listdir(d):
+    if file.endswith(".c"):
+        files.append(file)
+if not files:
+    print("Erro: Falta código da solução.")
+    exit()
+
+command = list()
+command.extend(CC)
+command.extend(CPPFLAGS)
+command.extend(CFLAGS)
+command.extend(LDFLAGS)
+command.extend(files)
+command.extend(LDLIBS)
+command.append("-o"+x)
+
+print_check("Compilando")
+comp = subprocess.Popen(command, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+comp.wait()
+if comp.returncode:
+    print_error("Compilação da solução falhou.")
+    print(str(comp.stdout.read(), 'utf-8'))
+    exit()
+print_ok()
+
+
+print_header("Rodando os testes")
+
+def wait_test(p, data):
+    print_check("Teste "+data["filename"])
+    p.wait(timeout=60)
+
+    data["stdin"].close()
+    data["stdin"] = data["stdin"].name
+
+    data["stdout"].close()
+    data["stdout"] = data["stdout"].name
+
+    data["stderr"].close()
+    data["stderr"] = data["stderr"].name
+
+    if p.returncode:
+        print_error()
+        return
+
+    stdout = os.path.join(data["swd"], "arq" + data["filename"] + ".out")
+    if os.path.isfile(stdout):
+        stdout2 = open(data["stdout"])
+        stdout = open(stdout)
+        diff = list(difflib.unified_diff(stdout.readlines(), stdout2.readlines(), fromfile='Correto', tofile='Executado'))
+        stdout.close()
+        stdout2.close()
+
+        if diff:
+            print_error("Diferenças encontradas no stdout")
+            sys.stdout.writelines(diff)
+            fail = True
+            return
+
+    stdout = os.path.join(data["swd"], "arq" + data["filename"] + ".err")
+    if os.path.isfile(stdout):
+        stdout2 = open(data["stderr"])
+        stdout = open(stdout)
+        diff = list(difflib.unified_diff(stdout.readlines(), stdout2.readlines(), fromfile='Correto', tofile='Executado'))
+        stdout.close()
+        stdout2.close()
+
+        if diff:
+            print_error("Diferenças encontradas no stderr")
+            sys.stdout.writelines(diff)
+            return
+
+    print_ok()
+
+
+wait_list = list()
+d = os.path.join(tmpdir, "tests")
+
+for filename in sorted(tests["open"]+tests["hidden"]):
+    ld = os.path.join(d, "arq" + filename)
+    os.mkdir(ld)
+    stdin = open(os.path.join(d, "arq" + filename + ".in"))
+    stdout = open(os.path.join(ld, "arq" + filename + ".out"), 'w')
+    stderr = open(os.path.join(ld, "arq" + filename + ".err"), 'w')
+    p = subprocess.Popen([x],
+        cwd=ld,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr)
+
+    data = dict()
+    data["filename"] = filename
+    data["swd"] = d
+    data["cwd"] = ld
+    data["stdin"] = stdin
+    data["stdout"] = stdout
+    data["stderr"] = stderr
+    if args.seq:
+        wait_test(p, data)
+    else:
+        wait_list.append((p, data))
+
+
+for p in wait_list:
+    wait_test(*p)
+
+if fail:
+    exit()
+
+# Check Images
+
+print_header("Enunciado")
+print_check("Imagens")
+imgs = list()
+mimetypes.init()
+for filename in os.listdir(workdir):
+    m = mimetypes.guess_type(filename)
+    if m[0] and m[0].startswith("image/"):
+        imgs.append(filename)
+print_ok(",".join(imgs))
+
+# Configs
+
+print_check("Configuração")
+import json
+data_file = open('config.json')
+data = json.load(data_file)
+data_file.close()
+print_ok()
+
+load_test_re = re.compile('(?P<pre>.*)!TESTE!(?P<file>\d+)!(?P<pos>.*)')
+include_re = re.compile('(?P<pre>.*)include\(\"(?P<file>[^\"]+)\"\)(?P<pos>.*)')
+def parse_md(input, output):
+    while input:
+        line = input.pop(0)
+
+        m = load_test_re.match(line)
+        if m:
+            line = m.group('pre')
+            input.insert(0,m.group('pos'))
+            input.insert(0,"    ```\n\n")
+            input.insert(0,'include("tests/arq'+m.group('file')+'/arq'+m.group('file')+'.out")\n')
+            input.insert(0,"    ```\n\n")
+            input.insert(0,"* [Saída](dados/arq"+m.group('file')+".res)\n\n")
+            input.insert(0,"    ```\n\n")
+            input.insert(0,'include("tests/arq'+m.group('file')+'.in")\n')
+            input.insert(0,"    ```\n\n")
+            input.insert(0,"* [Entrada](dados/arq"+m.group('file')+".in)\n\n")
+            input.insert(0,"###### Teste \1\n\n")
+
+        m = include_re.match(line)
+        if m:
+            line = m.group('pre')
+            input.insert(0,m.group('pos'))
+            f = os.path.join(tmpdir, m.group('file'))
+            if not os.path.isfile(f):
+                f = os.path.join(workdir, m.group('file'))
+            f = open(f)
+            flines = f.readlines()
+            f.close()
+            while flines:
+                input.insert(0, flines.pop())
+
+        output.append(line)
+
+print_check("Carregando Markdown")
+md = os.path.join(workdir, "enunciado.md")
+md = open(md)
+mdlines = md.readlines()
+md.close()
+print_ok()
+
+print_check("Parseando Markdown")
+mdo = list()
+parse_md(mdlines, mdo)
+print_ok()
+
+print_check("Salvando Markdown")
+md = os.path.join(tmpdir, "enunciado.md")
+md = open(md, "w")
+md.writelines(mdo)
+md.close()
+md = ''.join(mdo)
+print_ok()
+
+print_check("Markdown para HTML")
+req = urllib.request.Request(url='https://api.github.com/markdown/raw',
+    data=md.encode('utf-8'))
+req.add_header('Content-Type', 'text/x-markdown')
+
+html = ""
+with urllib.request.urlopen(req) as response:
+    html = response.read().decode('utf-8')
+    md = os.path.join(tmpdir, "enunciado.html")
+    md = open(md, "w")
+    md.write(HTML_HEADER)
+    md.write(html)
+    md.write(HTML_TAIL)
+    md.close()
+    shutil.copy(md.name, workdir)
+md = HTML_HEADER.splitlines(keepends=True)
+md.extend(html.splitlines(keepends=True))
+md.extend(HTML_TAIL.splitlines(keepends=True))
+html = md
+print_ok()
+
+cmd_re = re.compile('(?P<pre>.*)!(?P<cmd>[A-Z_]+)!(?P<pos>.*)')
+def parse_html(input, output, data):
+    while input:
+        line = input.pop(0)
+
+        m = cmd_re.match(line)
+        if m:
+            line = ""
+            if m.group('cmd') in data:
+                input.insert(0,m.group('pos'))
+                input.insert(0,data[m.group('cmd')])
+                input.insert(0,m.group('pre'))
+            else:
+                input.insert(0,"!"+m.group('pos'))
+                input.insert(0,m.group('cmd'))
+                input.insert(0,m.group('pre')+"!")
+            continue
+
+        output.append(line)
+
+def write_cfg(filename, data):
+    cfg = '''##||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+# Tarefa
+
+VERSION: 9.5   # Versão do sistema
+TASKID: %(id)s   # Identificação da tarefa (tratada como identificador)
+TASK_COMMENT: %(title)s  # Título da tarefa
+
+# Data de início do prazo de submissão
+START_TIME: %(start_time)s
+START_DATE: %(start_date)s
+# Data de fim do prazo de submissão
+FINAL_TIME: %(final_time)s
+FINAL_DATE: %(final_date)s
+
+PROCESSOR: ["C"]  # Processador a ser usado na instalação da tarefa
+IMPLEMENTATION_PROCESSOR: C
+SELECT_PROCESSOR: False
+SUBMIT_FILES: ["*"]     # Submissão de um único arquivo, com nome próprio
+MAX_SUBMISSIONS: %(max_submissions)s
+CPU_LIMIT: %(cpu_limit)s  # Tempo maximo de processamento em segundos
+
+TEST_CASES:        [%(open_tests)s] # Testes abertos
+HIDDEN_TEST_CASES: [%(hidden_tests)s]  # Testes fechados
+
+KEEP: %(keep)s  # Número de submissões a preservar de cada aluno
+TASK_DESCRIPTION_PAGE: enunciado.html
+
+##||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+''' % data
+    filename.write(cfg)
+
+rdir = os.path.join(workdir, "releases")
+shutil.rmtree(rdir, ignore_errors=True)
+os.mkdir(rdir)
+for release in data["releases"]:
+    print_header("Instalador "+release["name"])
+    print_check("Criando diretório")
+    d = os.path.join(tmpdir, release["name"])
+    rdirr = os.path.join(rdir, release["name"])
+    try:
+        os.mkdir(d)
+        os.mkdir(rdirr)
+    except FileExistsError:
+        print_error("Diretório " + d +" já existe")
+        continue
+
+    ds = os.path.join(d, data["task"]["id"])
+    os.mkdir(ds)
+    print_ok()
+
+    release["start_time"] = datetime.datetime.strptime(release["start_time"], "%Y-%m-%d %H:%M:%S")
+    release["end_time"] = datetime.datetime.strptime(release["end_time"], "%Y-%m-%d %H:%M:%S")
+
+    if "description" not in release or release["description"]:
+        print_check("Editando HTML")
+        cmd =dict()
+        cmd["ID"] = data["task"]["id"]
+        cmd["MAX_SUBMISSIONS"] = str(data["submissions"]["maximum"])
+        cmd["DEADLINE"] = release["end_time"].strftime("%d/%m/%Y %H:%M:%S")
+        cmd["TITLE"] = data["task"]["title"]
+        rhtml = list()
+        parse_html(html[:], rhtml, cmd)
+        print_ok()
+
+        print_check("Salvando HTML")
+        desc = open(os.path.join(ds, "enunciado.html"), "w")
+        desc.writelines(rhtml)
+        desc.close()
+        for img in imgs:
+            shutil.copy(os.path.join(workdir, img), ds)
+        print_ok()
+
+    print_check("Copiando testes")
+    dt = os.path.join(ds, "dados")
+    os.mkdir(dt)
+    if "open_tests" not in release or release["open_tests"]:
+        for filename in tests["open"]:
+            shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
+    if "hidden_tests" not in release or release["hidden_tests"]:
+        for filename in tests["hidden"]:
+            shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
+    print_ok()
+
+    print_check("Copiando solução")
+    dsols = os.path.join(ds, "sols")
+    os.mkdir(dsols)
+    for filename in os.listdir(os.path.join(workdir, "solution")):
+        shutil.copy(os.path.join(workdir, "solution", filename), dsols)
+    print_ok()
+
+    print_check("Gerando tarefa.cfg")
+    cfgd = dict()
+    cfgd["id"] = cmd["ID"]
+    if release["title"]:
+        cfgd["title"] = data["task"]["title"]
+    else:
+        cfgd["title"] = ""
+    cfgd["start_time"] = release["start_time"].strftime("%H:%M:%S")
+    cfgd["start_date"] = release["start_time"].strftime("%Y/%m/%d")
+    cfgd["final_time"] = release["end_time"].strftime("%H:%M:%S")
+    cfgd["final_date"] = release["end_time"].strftime("%Y/%m/%d")
+    cfgd["hidden_tests"] = ""
+    if "hidden_tests" not in release or (release["hidden_tests"] and release["hidden_tests"] != "open"):
+        if "open_tests" in release and release["open_tests"] == "hidden":
+            cfgd["hidden_tests"] = '"' + '","'.join(x for x in sorted(tests[ "open"] +tests["hidden"])) + '"'
+        else:
+            cfgd["hidden_tests"] = '"' + '","'.join(x for x in tests["hidden"]) + '"'
+    cfgd["open_tests"] = ""
+    if "open_tests" not in release or (release["open_tests"] and release["open_tests"] != "hidden"):
+        if "hidden_tests" in release and release["hidden_tests"] == "open":
+            cfgd["open_tests"] = '"' + '","'.join(x for x in sorted(tests[ "open"] +tests["hidden"])) + '"'
+        else:
+            cfgd["open_tests"] = '"' + '","'.join(x for x in tests["open"]) + '"'
+    cfgd["cpu_limit"] = str(data["limits"]["cpu"])
+    cfgd["keep"] = str(data["submissions"]["keep"])
+    cfgd["max_submissions"] = str(data["submissions"]["maximum"])
+
+    cfg = open(os.path.join(ds, "tarefa.cfg"), "w")
+    write_cfg(cfg, cfgd)
+    cfg.close()
+    print_ok()
+
+    print_check("Compactando")
+    shutil.make_archive(os.path.join(rdirr, str(data["task"]["id"])), 'zip', root_dir=d, base_dir=str(data["task"]["id"]))
+    print_ok()
+
+    if "shareable" in release:
+        print_header("Enunciado "+release["name"])
+        shareable = release["shareable"]
+
+        print_check("Criando diretório")
+        dshare = os.path.join(d, "enunciado_" + str(data["task"]["id"]))
+        os.mkdir(dshare)
+        print_ok()
+
+        print_check("Copiando testes")
+        dt = os.path.join(dshare, "testes")
+        os.mkdir(dt)
+        if "open_tests" in shareable and shareable["open_tests"]:
+            for filename in tests["open"]:
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".out"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".err"), dt)
+        if "hidden_tests" in shareable and shareable["hidden_tests"]:
+            for filename in tests["hidden"]:
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".out"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".err"), dt)
+        print_ok()
+
+        if "solution" in shareable and shareable["solution"]:
+            print_check("Copiando solução")
+            dsols = os.path.join(dshare, "solucao")
+            os.mkdir(dsols)
+            for filename in os.listdir(os.path.join(workdir, "solution")):
+                shutil.copy(os.path.join(workdir, "solution", filename), dsols)
+            print_ok()
+
+        if "description" in shareable and shareable["description"]:
+            print_check("Copiando HTML")
+            desc = open(os.path.join(dshare, "enunciado.html"), "w")
+            desc.writelines(rhtml)
+            desc.close()
+            for img in imgs:
+                shutil.copy(os.path.join(workdir, img), dshare)
+            print_ok()
+
+        print_check("Compactando")
+        shutil.make_archive(os.path.join(rdirr, "enunciado_" + str(data["task"]["id"])), 'zip', root_dir=d, base_dir="enunciado_" + str(data["task"]["id"]))
+        print_ok()

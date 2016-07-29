@@ -33,7 +33,7 @@
     exit(1);                                                                   \
   }
 
-#define I64(x) ((int64_t) x)
+#define I64(x) ((int64_t)x)
 
 #define CHECKINT32(x)                                                          \
   if (x > INT32_MAX || x < INT32_MIN) {                                        \
@@ -45,8 +45,9 @@
 #define CHECKINT(x, blimit, tlimit)                                            \
   CHECKINT32(x);                                                               \
   if (x < blimit || x > tlimit) {                                              \
-    printf("Limit! %" PRId64 " [%" PRId64 ",%" PRId64 "] at line number %d in %s(%s)\n", x,    \
-           blimit, tlimit, __LINE__, __func__, __FILE__);                      \
+    printf("Limit! %" PRId64 " [%" PRId64 ",%" PRId64                          \
+           "] at line number %d in %s(%s)\n",                                  \
+           x, blimit, tlimit, __LINE__, __func__, __FILE__);                   \
     exit(1);                                                                   \
   }
 
@@ -67,15 +68,17 @@
 
 int main(int argc, char *argv[]) {
 
-  if (argc != 4) {
-    printf("Usage: ./gen <pre> <input> <response>\n");
+  if (argc != 5) {
+    printf("Usage: ./gen <pre> <input> <output> <err>\n");
     exit(1);
   }
 
   FILE *pre = fopen(argv[1], "r");
+  printf("Pre: %s\n", argv[1]);
   NOTNULL(pre);
 
   FILE *input = fopen(argv[2], "w");
+  printf("Input: %s\n", argv[2]);
   NOTNULL(input);
 
   char v;
@@ -101,12 +104,18 @@ int main(int argc, char *argv[]) {
 
   // Response
   FILE *response = fopen(argv[3], "w");
+  printf("Output: %s\n", argv[3]);
   NOTNULL(response);
 
   fprintf(response, "Caracteres: %" PRId64 "\n", c);
   fprintf(response, "Linhas:     %" PRId64 "\n", l);
 
   fclose(response);
+
+  FILE *err = fopen(argv[4], "w");
+  printf("Err: %s\n", argv[4]);
+  NOTNULL(err);
+  fclose(err);
 
   return 0;
 }

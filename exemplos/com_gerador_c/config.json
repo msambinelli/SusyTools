@@ -1,0 +1,62 @@
+{
+  "task" : {
+    "id": "00",
+    "title": "Contagem de linhas e caracteres",
+    "content": {
+      "conditional" : "required",
+      "io": "required",
+      "functions": "no",
+      "recursion": "no",
+      "array": "no",
+      "sort": "no",
+      "string": "yes",
+      "matrix": "no",
+      "struct" : "no",
+      "files" : "no"
+    }
+  },
+  "releases": [
+    {
+      "name": "students",
+      "start_time": "2016-04-20 00:00:01",
+      "end_time": "2016-04-20 00:00:01",
+      "title": true,
+      "description": true,
+      "open_tests": true,
+      "hidden_tests": true,
+      "shareable": {
+        "open_tests": true,
+        "hidden_tests": false,
+        "solution": false,
+        "description": true,
+        "aux": true
+      }
+    },
+    {
+      "name": "staff",
+      "start_time": "2016-04-20 00:00:01",
+      "end_time": "2016-04-20 00:00:01",
+      "title": false,
+      "description": false,
+      "open_tests": "hidden",
+      "hidden_tests": "hidden",
+      "shareable": {
+        "open_tests": true,
+        "hidden_tests": true,
+        "solution": false,
+        "description": true,
+        "aux": true
+      }
+    }
+  ],
+  "limits" : {
+    "file" : 1000,
+    "data" : 1000,
+    "stack" : 1000,
+    "cpu" : 5
+  },
+  "submissions" : {
+    "maximum" : 10,
+    "keep" : 10
+  }
+}

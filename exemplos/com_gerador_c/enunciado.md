@@ -17,7 +17,7 @@ Descrição
 
 Escreva um programa que conta o número de caracteres e o número de linhas da entrada.
 
-![Qualquer](images/qualquer.jpg)
+![Qualquer](qualquer.jpg)
 
 Entrada
 -------
@@ -83,7 +83,6 @@ Exemplos
 
 !TESTE!1!
 !TESTE!2!
-!TESTE!3!
 
 ###### Exemplo sem teste
 
@@ -124,5 +123,5 @@ Dica
 Leia o seguinte código, ele pode te auxiliar:
 
 ```C
-include("sols/sol.c")
+include("solution/sol.c")
 ```
