@@ -465,7 +465,7 @@ def parse_md(input, output):
             input.insert(0,'include("tests/arq'+m.group('file')+'.in")\n')
             input.insert(0,"    ```\n\n")
             input.insert(0,"* [Entrada](dados/arq"+m.group('file')+".in)\n\n")
-            input.insert(0,"###### Teste \1\n\n")
+            input.insert(0,"###### Teste "+m.group('file')+"\n\n")
 
         m = include_re.match(line)
         if m:
