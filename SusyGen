@@ -712,6 +712,11 @@ for release in data["releases"]:
                 shutil.copy(os.path.join(workdir, img), dshare)
             print_ok()
 
+        if "md" in shareable and shareable["md"]:
+            print_check("Copiando Markdown")
+            shutil.copy(os.path.join(workdir, "enunciado.md"), dshare)
+            print_ok()
+
         print_check("Compactando")
         shutil.make_archive(os.path.join(rdirr, "enunciado_" + str(data["task"]["id"])), 'zip', root_dir=d, base_dir="enunciado_" + str(data["task"]["id"]))
         print_ok()
