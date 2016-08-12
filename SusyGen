@@ -11,6 +11,7 @@ import sys
 import urllib.request
 import mimetypes
 import datetime
+import stat
 
 fail = False
 
@@ -197,7 +198,7 @@ else:
 if tests["gopen"] or tests["ghidden"]:
     print_check("Conferindo gerador de testes")
     x = os.path.join(workdir, "tests", "generator", "generator")
-    if not os.path.isfile(x) or not os.access(x, os.X_OK):
+    if not os.path.isfile(x):
         d = os.path.join(workdir, "tests", "generator")
         x = os.path.join(tmpdir, "generator")
 
@@ -224,10 +225,17 @@ if tests["gopen"] or tests["ghidden"]:
             print_error("Compilação do gerador falhou.")
             print(str(comp.stdout.read(), 'utf-8'))
             exit()
+    elif not os.access(x, os.X_OK):
+        st = os.stat(x)
+        os.chmod(x, st.st_mode | stat.S_IEXEC | stat.S_IXGRP)
+
     print_ok()
 
-    if not os.path.isfile(x) or not os.access(x, os.X_OK):
+    if not os.path.isfile(x):
         print_error("Erro: Falta gerador para testes.")
+        exit()
+    elif not os.access(x, os.X_OK):
+        print_error("Erro: Gerador não tem permissão de execução.")
         exit()
 
 # Tests
