@@ -29,7 +29,8 @@
         "hidden_tests": false,
         "solution": false,
         "description": true,
-        "aux": true
+        "aux": true,
+        "md": false
       }
     },
     {
@@ -45,7 +46,25 @@
         "hidden_tests": true,
         "solution": false,
         "description": true,
-        "aux": true
+        "aux": true,
+        "md": false
+      }
+    },
+    {
+      "name": "staff-preview",
+      "start_time": "1900-01-01 00:00:01",
+      "end_time": "1900-01-01 23:59:59",
+      "title": false,
+      "description": false,
+      "open_tests": false,
+      "hidden_tests": false,
+      "shareable": {
+        "open_tests": false,
+        "hidden_tests": false,
+        "solution": false,
+        "description": true,
+        "aux": true,
+        "md": true
       }
     }
   ],
