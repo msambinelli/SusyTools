@@ -559,8 +559,8 @@ START_DATE: %(start_date)s
 FINAL_TIME: %(final_time)s
 FINAL_DATE: %(final_date)s
 
-PROCESSOR: ["C"]  # Processador a ser usado na instalação da tarefa
-IMPLEMENTATION_PROCESSOR: C
+PROCESSOR: [%(languages)s]  # Processador a ser usado na instalação da tarefa
+IMPLEMENTATION_PROCESSOR: %(language)s
 SELECT_PROCESSOR: False
 SUBMIT_FILES: ["*"]     # Submissão de um único arquivo, com nome próprio
 MAX_SUBMISSIONS: %(max_submissions)s
@@ -658,6 +658,8 @@ for release in data["releases"]:
             cfgd["open_tests"] = '"' + '","'.join(x for x in sorted(tests[ "open"] +tests["hidden"])) + '"'
         else:
             cfgd["open_tests"] = '"' + '","'.join(x for x in tests["open"]) + '"'
+    cfgd["language"] = data["solution"]["language"]
+    cfgd["languages"] = '"' + '","'.join(x for x in data["submissions"]["languages"]) + '"'
     cfgd["cpu_limit"] = str(data["limits"]["cpu"])
     cfgd["keep"] = str(data["submissions"]["keep"])
     cfgd["max_submissions"] = str(data["submissions"]["maximum"])

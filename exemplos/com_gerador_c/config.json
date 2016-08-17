@@ -74,8 +74,15 @@
     "stack" : 1000,
     "cpu" : 5
   },
+  "solution" : {
+    "language" : "C"
+  },
   "submissions" : {
     "maximum" : 10,
-    "keep" : 10
+    "keep" : 10,
+    "languages" : {
+      "C" : true,
+      "PY3" : true
+    }
   }
 }
