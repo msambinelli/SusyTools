@@ -442,7 +442,7 @@ print_ok(",".join(imgs))
 
 print_check("Configuração")
 import json
-data_file = open('config.json')
+data_file = open(os.path.join(workdir, 'config.json'))
 data = json.load(data_file)
 data_file.close()
 print_ok()
