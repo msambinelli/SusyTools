@@ -641,7 +641,7 @@ for release in data["releases"]:
     if release["title"]:
         cfgd["title"] = data["task"]["title"]
     else:
-        cfgd["title"] = ""
+        cfgd["title"] = "Unknown"
     cfgd["start_time"] = release["start_time"].strftime("%H:%M:%S")
     cfgd["start_date"] = release["start_time"].strftime("%Y/%m/%d")
     cfgd["final_time"] = release["end_time"].strftime("%H:%M:%S")
