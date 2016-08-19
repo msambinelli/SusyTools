@@ -531,9 +531,10 @@ def parse_html(input, output, data):
         m = cmd_re.match(line)
         if m:
             line = ""
-            if m.group('cmd') in data:
+            tag = m.group('cmd').lower()
+            if tag in data:
                 input.insert(0,m.group('pos'))
-                input.insert(0,data[m.group('cmd')])
+                input.insert(0,data[tag])
                 input.insert(0,m.group('pre'))
             else:
                 input.insert(0,"!"+m.group('pos'))
@@ -561,6 +562,7 @@ FINAL_DATE: %(final_date)s
 
 PROCESSOR: [%(languages)s]  # Processador a ser usado na instalação da tarefa
 IMPLEMENTATION_PROCESSOR: %(language)s
+MAIN_PROG_NAME: %(basename)s
 SELECT_PROCESSOR: False
 SUBMIT_FILES: ["*"]     # Submissão de um único arquivo, com nome próprio
 MAX_SUBMISSIONS: %(max_submissions)s
@@ -600,11 +602,12 @@ for release in data["releases"]:
 
     if "description" not in release or release["description"]:
         print_check("Editando HTML")
-        cmd =dict()
-        cmd["ID"] = data["task"]["id"]
-        cmd["MAX_SUBMISSIONS"] = str(data["submissions"]["maximum"])
-        cmd["DEADLINE"] = release["end_time"].strftime("%d/%m/%Y %H:%M:%S")
-        cmd["TITLE"] = data["task"]["title"]
+        cmd = dict()
+        cmd["id"] = data["task"]["id"]
+        cmd["max_submissions"] = str(data["submissions"]["maximum"])
+        cmd["deadline"] = release["end_time"].strftime("%d/%m/%Y %H:%M:%S")
+        cmd["title"] = data["task"]["title"]
+        cmd["basename"] = data["submissions"]["basename"] % cmd
         rhtml = list()
         parse_html(html[:], rhtml, cmd)
         print_ok()
@@ -637,7 +640,7 @@ for release in data["releases"]:
 
     print_check("Gerando tarefa.cfg")
     cfgd = dict()
-    cfgd["id"] = cmd["ID"]
+    cfgd["id"] = data["task"]["id"]
     if release["title"]:
         cfgd["title"] = data["task"]["title"]
     else:
@@ -663,6 +666,7 @@ for release in data["releases"]:
     cfgd["cpu_limit"] = str(data["limits"]["cpu"])
     cfgd["keep"] = str(data["submissions"]["keep"])
     cfgd["max_submissions"] = str(data["submissions"]["maximum"])
+    cfgd["basename"] = data["submissions"]["basename"] % cfgd
 
     cfg = open(os.path.join(ds, "tarefa.cfg"), "w")
     write_cfg(cfg, cfgd)

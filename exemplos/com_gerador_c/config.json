@@ -78,6 +78,7 @@
     "language" : "C"
   },
   "submissions" : {
+    "basename" : "lab%(id)s",
     "maximum" : 10,
     "keep" : 10,
     "languages" : {

@@ -104,9 +104,9 @@ Para mais exemplos, consulte os [testes abertos no Susy](dados/testes.html).
 Observações
 -----------
 * O número máximo de submissões é **!MAX_SUBMISSIONS!**;
-* O seu programa deve estar completamente contido em um único arquivo denominado `lab!ID!.c`;
+* O seu programa deve estar completamente contido em um único arquivo denominado `!BASENAME!.c` ou `!BASENAME!.py`;
 * Para a realização dos testes do SuSy, a compilação se dará da seguinte forma:  
-  `gcc -std=c99 -pedantic -Wall -o lab!ID! lab!ID!.c`;
+  `gcc -std=c99 -pedantic -Wall -o !BASENAME! !BASENAME!.c`;
 * Você deve incluir, no início do seu programa, uma breve descrição dos objetivos do programa, da entrada e da saída, além do seu nome e do seu RA;
 * Indente corretamente o seu código e inclua comentários no decorrer do seu programa.
 
