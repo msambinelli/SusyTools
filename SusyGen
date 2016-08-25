@@ -459,11 +459,11 @@ def parse_md(input, output):
             input.insert(0,m.group('pos'))
             input.insert(0,"    ```\n\n")
             input.insert(0,'include("tests/arq'+m.group('file')+'/arq'+m.group('file')+'.out")\n')
-            input.insert(0,"    ```\n\n")
+            input.insert(0,"    ```\n")
             input.insert(0,"* [Saída](dados/arq"+m.group('file')+".res)\n\n")
             input.insert(0,"    ```\n\n")
             input.insert(0,'include("tests/arq'+m.group('file')+'.in")\n')
-            input.insert(0,"    ```\n\n")
+            input.insert(0,"    ```\n")
             input.insert(0,"* [Entrada](dados/arq"+m.group('file')+".in)\n\n")
             input.insert(0,"###### Teste "+m.group('file')+"\n\n")
 
