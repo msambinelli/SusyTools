@@ -549,7 +549,7 @@ def write_cfg(filename, data):
 
 # Tarefa
 
-VERSION: 9.5   # Versão do sistema
+VERSION: 9.6   # Versão do sistema
 TASKID: %(id)s   # Identificação da tarefa (tratada como identificador)
 TASK_COMMENT: %(title)s  # Título da tarefa
 
