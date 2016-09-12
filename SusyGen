@@ -12,6 +12,7 @@ import urllib.request
 import mimetypes
 import datetime
 import stat
+import shutil
 
 fail = False
 
@@ -109,6 +110,15 @@ HTML_TAIL = """
 </html>
 """
 
+# Configs
+
+print_check("Configuração")
+import json
+data_file = open(os.path.join(workdir, 'config.json'))
+data = json.load(data_file)
+data_file.close()
+print_ok()
+
 # Detecting testes
 tests = dict()
 
@@ -186,7 +196,11 @@ print_ok(",".join(tests["ghidden"]))
 # Temporary Directory
 print_header("Diretório Temporário")
 if args.keep:
-    tmpdir = tempfile.mkdtemp(prefix="SusyTools_")
+    tmpdir = tempfile.gettempdir()
+    tmpdir = os.path.join(tmpdir, "SusyTools_" + data["task"]["id"])
+    if os.path.isdir(tmpdir):
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    os.mkdir(tmpdir)
     print_ok(tmpdir)
     print_warning("Não será excluído")
 else:
@@ -240,7 +254,6 @@ if tests["gopen"] or tests["ghidden"]:
 
 # Tests
 
-import shutil
 d = os.path.join(tmpdir, "tests")
 os.mkdir(d)
 
