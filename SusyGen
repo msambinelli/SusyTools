@@ -6,6 +6,7 @@ import io
 import tempfile
 import subprocess
 import difflib
+import json
 import re
 import sys
 import urllib.request
@@ -13,6 +14,10 @@ import mimetypes
 import datetime
 import stat
 import shutil
+
+
+################################################################################
+# Log and Control
 
 fail = False
 
@@ -27,6 +32,10 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 def print_header(msg):
+    global fail
+    if fail:
+        print("\n" + bcolors.FAIL + "Erros encontrados" + bcolors.ENDC)
+        exit()
     print(bcolors.HEADER + "---------------------------------")
     print(msg + bcolors.ENDC)
 
@@ -47,27 +56,8 @@ def print_warning(msg):
 def print_check(msg):
     print(msg+": ", end="")
 
-
-# Get the directory of this script
-script_dir = os.path.dirname(os.path.realpath(__file__))
-cur_dir = os.getcwd()
-
-# Arguments
-import argparse
-parser = argparse.ArgumentParser(description='Gerador do enunciado para o Susy.')
-parser.add_argument('directory', metavar='directory', type=str, nargs='?',
-                    default=cur_dir,
-                    help='Diretório do enunciado')
-parser.add_argument('--keep', action='store_true',
-                    help='Não excluir arquivos temporários')
-parser.add_argument('--seq', action='store_true',
-                    help='Executar sequencialmente')
-args = parser.parse_args()
-
-workdir = args.directory
-print_header("Trabalhando o Enunciado")
-print_ok(workdir)
-
+################################################################################
+# Defines
 
 CC = ["gcc"]
 CPPFLAGS = []
@@ -110,13 +100,136 @@ HTML_TAIL = """
 </html>
 """
 
+################################################################################
+# Languages
+
+class Language:
+    def __init__(self, srcdir, tmpdir, config):
+        self.srcdir = srcdir
+        self.tmpdir = tmpdir
+        self.config = config
+        self.source = list()
+    def compile(self):
+        pass
+    def run(self, stdin, stdout, stderr, args):
+        pass
+    def copy(self, target):
+        for file in self.source:
+            shutil.copy(os.path.join(self.srcdir, file), target)
+
+class LanguageC(Language):
+    def __init__(self, srcdir, tmpdir, config):
+        Language.__init__(self, srcdir, tmpdir, config)
+        self.executable = os.path.join(tmpdir, "exec")
+        self.header = list()
+    def compile(self):
+        Language.compile(self)
+        print_check("Compilando C")
+
+        self.source = list()
+        for file in os.listdir(self.srcdir):
+            if file.endswith(".c"):
+                self.source.append(file)
+            elif file.endswith(".h"):
+                self.header.append(file)
+        if not self.source:
+            print_error("Falta código da solução.")
+
+        command = list()
+        command.extend(CC)
+        command.extend(CPPFLAGS)
+        command.extend(CFLAGS)
+        command.extend(LDFLAGS)
+        command.extend(self.source)
+        command.extend(LDLIBS)
+        command.append("-o"+self.executable)
+
+        comp = subprocess.Popen(command, cwd=self.srcdir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        comp.wait()
+        if comp.returncode:
+            print_error("Compilação da solução falhou.")
+            print(str(comp.stdout.read(), 'utf-8'))
+        print_ok()
+    def run(self, stdin, stdout, stderr, args):
+        Language.run(self, stdin, stdout, stderr, args)
+        Args = [self.executable]
+        if args:
+            Args.extend(args)
+        return subprocess.Popen(Args, stdin=stdin, stdout=stdout, stderr=stderr)
+    def copy(self, target):
+        Language.copy(self, target)
+        for file in self.header:
+            shutil.copy(os.path.join(self.srcdir, file), target)
+
+
+class LanguagePY3(Language):
+    def __init__(self, srcdir, tmpdir, config):
+        Language.__init__(self, srcdir, tmpdir, config)
+    def compile(self):
+        Language.compile(self)
+        print_check("Compilando PY3")
+        self.source = list()
+        for file in os.listdir(self.srcdir):
+            if file.endswith(".py"):
+                self.source.append(file)
+                shutil.copy(os.path.join(self.srcdir, file), self.tmpdir)
+        if not self.source:
+            print_error("Falta código da solução.")
+        else:
+            print_ok()
+    def run(self, stdin, stdout, stderr, args):
+        Language.run(self, stdin, stdout, stderr, args)
+        executable = "main.py"
+        if "main" in self.config:
+            executable = self.config["main"]
+        Args = ["python3", os.path.join(self.tmpdir, executable)]
+        if args:
+            Args.extend(args)
+        return subprocess.Popen(Args, stdin=stdin, stdout=stdout, stderr=stderr)
+
+def getLanguage(lang, srcdir, tmpdir, config):
+    L = "Language" + lang
+    if L not in globals():
+        print_error("Language error: " + lang)
+        return
+    Lang = globals()[L]
+
+    if not os.path.isdir(tmpdir):
+        os.mkdir(tmpdir)
+
+    return Lang(srcdir, tmpdir, config)
+
+
+################################################################################
+# Init
+
+# Get the directory of this script
+script_dir = os.path.dirname(os.path.realpath(__file__))
+cur_dir = os.getcwd()
+
+# Arguments
+import argparse
+parser = argparse.ArgumentParser(description='Gerador do enunciado para o Susy.')
+parser.add_argument('directory', metavar='directory', type=str, nargs='?',
+                    default=cur_dir,
+                    help='Diretório do enunciado')
+parser.add_argument('--keep', action='store_true',
+                    help='Não excluir arquivos temporários')
+parser.add_argument('--seq', action='store_true',
+                    help='Executar sequencialmente')
+args = parser.parse_args()
+
+################################################################################
 # Configs
 
+workdir = os.path.realpath(args.directory)
+print_header("Trabalhando o Enunciado")
+print_ok(workdir)
+
 print_check("Configuração")
-import json
-data_file = open(os.path.join(workdir, 'config.json'))
-data = json.load(data_file)
-data_file.close()
+config_file = open(os.path.join(workdir, 'config.json'))
+CONFIG = json.load(config_file)
+config_file.close()
 print_ok()
 
 # Detecting testes
@@ -193,11 +306,13 @@ print_ok(",".join(tests["gopen"]))
 print_check("Fechados")
 print_ok(",".join(tests["ghidden"]))
 
+################################################################################
 # Temporary Directory
+
 print_header("Diretório Temporário")
 if args.keep:
     tmpdir = tempfile.gettempdir()
-    tmpdir = os.path.join(tmpdir, "SusyTools_" + data["task"]["id"])
+    tmpdir = os.path.join(tmpdir, "SusyTools_" + CONFIG["task"]["id"])
     if os.path.isdir(tmpdir):
         shutil.rmtree(tmpdir, ignore_errors=True)
     os.mkdir(tmpdir)
@@ -210,47 +325,17 @@ else:
 
 # Creator
 if tests["gopen"] or tests["ghidden"]:
-    print_check("Conferindo gerador de testes")
-    x = os.path.join(workdir, "tests", "generator", "generator")
-    if not os.path.isfile(x):
-        d = os.path.join(workdir, "tests", "generator")
-        x = os.path.join(tmpdir, "generator")
+    gen = "PY3"
+    gen_data = None
+    if "generator" in CONFIG:
+        if "language" in CONFIG["generator"]:
+            gen = CONFIG["generator"]["language"]
+        gen_data = CONFIG["generator"]
 
-        files = list()
-        for file in os.listdir(d):
-            if file.endswith(".c"):
-                files.append(file)
-        if not files:
-            print_error("Falta código do gerador de testes.")
-            exit()
-
-        command = list()
-        command.extend(CC)
-        command.extend(CPPFLAGS)
-        command.extend(CFLAGS)
-        command.extend(LDFLAGS)
-        command.extend(files)
-        command.extend(LDLIBS)
-        command.append("-o"+x)
-
-        comp = subprocess.Popen(command, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        comp.wait()
-        if comp.returncode:
-            print_error("Compilação do gerador falhou.")
-            print(str(comp.stdout.read(), 'utf-8'))
-            exit()
-    elif not os.access(x, os.X_OK):
-        st = os.stat(x)
-        os.chmod(x, st.st_mode | stat.S_IEXEC | stat.S_IXGRP)
-
-    print_ok()
-
-    if not os.path.isfile(x):
-        print_error("Erro: Falta gerador para testes.")
-        exit()
-    elif not os.access(x, os.X_OK):
-        print_error("Erro: Gerador não tem permissão de execução.")
-        exit()
+    gen_src = os.path.join(workdir, "tests", "generator")
+    gen_tmp = os.path.join(tmpdir, "generator")
+    Gen = getLanguage(gen, gen_src, gen_tmp, gen_data)
+    Gen.compile()
 
 # Tests
 
@@ -279,12 +364,12 @@ def wait_gentest(p, data):
     print(str(p.stdout.read(), 'utf-8'))
 
 def run_gentest(t, filename, wait_list):
-    global fail
+    global Gen
     prefile = os.path.join(workdir, "tests", t, "arq" + filename + ".pre")
     infile = os.path.join(d, "arq" + filename + ".in")
     outfile = os.path.join(d, "arq" + filename + ".out")
     errfile = os.path.join(d, "arq" + filename + ".err")
-    p = subprocess.Popen([x, prefile, infile, outfile, errfile], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = Gen.run(None, subprocess.PIPE, subprocess.STDOUT, [prefile, infile, outfile, errfile])
 
     data = dict()
     data["filename"] = filename
@@ -320,43 +405,44 @@ if tests["gopen"] or tests["ghidden"]:
     for p in wait_list:
         wait_gentest(*p)
 
-if fail:
-    exit()
-
+################################################################################
 # Solution
 
 print_header("Solução")
 
-d = os.path.join(workdir, "solution")
 x = os.path.join(tmpdir, "solution")
-files = list()
-for file in os.listdir(d):
-    if file.endswith(".c"):
-        files.append(file)
-if not files:
-    print("Erro: Falta código da solução.")
-    exit()
+os.mkdir(x)
 
-command = list()
-command.extend(CC)
-command.extend(CPPFLAGS)
-command.extend(CFLAGS)
-command.extend(LDFLAGS)
-command.extend(files)
-command.extend(LDLIBS)
-command.append("-o"+x)
+langs = None
+if "languages" in CONFIG["solution"]:
+    langs = CONFIG["solution"]["languages"].keys()
+if not langs:
+    langs = [CONFIG["solution"]["language"]]
 
-print_check("Compilando")
-comp = subprocess.Popen(command, cwd=d, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-comp.wait()
-if comp.returncode:
-    print_error("Compilação da solução falhou.")
-    print(str(comp.stdout.read(), 'utf-8'))
-    exit()
-print_ok()
+Langs = dict()
+for lang in langs:
+    L = "Language" + lang
+    if L not in globals():
+        print_error("Language error: " + lang)
+        continue
+    Lang = globals()[L]
+
+    src = os.path.join(workdir, "solution", lang)
+    if not os.path.isdir(src):
+        src = os.path.join(workdir, "solution")
+    tmp = os.path.join(tmpdir, "solution", lang)
+    os.mkdir(tmp)
+
+    dt = None
+    if "languages" in CONFIG["solution"] and lang in CONFIG["solution"]["languages"]:
+        dt = CONFIG["solution"]["languages"][lang]
+
+    Langs[lang] = Lang(src, tmp, dt)
+    Langs[lang].compile()
 
 
-print_header("Rodando os testes")
+################################################################################
+# Run tests
 
 def wait_test(p, data):
     print_check("Teste "+data["filename"])
@@ -388,11 +474,13 @@ def wait_test(p, data):
             sys.stdout.writelines(diff)
             fail = True
             return
+    else:
+        shutil.copy(data["stdout"], stdout)
 
-    stdout = os.path.join(data["swd"], "arq" + data["filename"] + ".err")
-    if os.path.isfile(stdout):
+    stderr = os.path.join(data["swd"], "arq" + data["filename"] + ".err")
+    if os.path.isfile(stderr):
         stdout2 = open(data["stderr"])
-        stdout = open(stdout)
+        stdout = open(stderr)
         diff = list(difflib.unified_diff(stdout.readlines(), stdout2.readlines(), fromfile='Correto', tofile='Executado'))
         stdout.close()
         stdout2.close()
@@ -401,43 +489,40 @@ def wait_test(p, data):
             print_error("Diferenças encontradas no stderr")
             sys.stdout.writelines(diff)
             return
+    else:
+        shutil.copy(data["stderr"], stderr)
 
     print_ok()
 
 
-wait_list = list()
 d = os.path.join(tmpdir, "tests")
+for lang, L in Langs.items():
+    print_header("Rodando os testes para solução em "+lang)
+    wait_list = list()
+    for filename in sorted(tests["open"]+tests["hidden"]):
+            ld = os.path.join(d, "arq" + filename + "_" + lang)
+            os.mkdir(ld)
+            stdin = open(os.path.join(d, "arq" + filename + ".in"))
+            stdout = open(os.path.join(ld, "arq" + filename + ".out"), 'w')
+            stderr = open(os.path.join(ld, "arq" + filename + ".err"), 'w')
 
-for filename in sorted(tests["open"]+tests["hidden"]):
-    ld = os.path.join(d, "arq" + filename)
-    os.mkdir(ld)
-    stdin = open(os.path.join(d, "arq" + filename + ".in"))
-    stdout = open(os.path.join(ld, "arq" + filename + ".out"), 'w')
-    stderr = open(os.path.join(ld, "arq" + filename + ".err"), 'w')
-    p = subprocess.Popen([x],
-        cwd=ld,
-        stdin=stdin,
-        stdout=stdout,
-        stderr=stderr)
+            p = L.run(stdin, stdout, stderr, None)
 
-    data = dict()
-    data["filename"] = filename
-    data["swd"] = d
-    data["cwd"] = ld
-    data["stdin"] = stdin
-    data["stdout"] = stdout
-    data["stderr"] = stderr
-    if args.seq:
-        wait_test(p, data)
-    else:
-        wait_list.append((p, data))
+            data = dict()
+            data["filename"] = filename
+            data["swd"] = d
+            data["cwd"] = ld
+            data["stdin"] = stdin
+            data["stdout"] = stdout
+            data["stderr"] = stderr
+            if args.seq:
+                wait_test(p, data)
+            else:
+                wait_list.append((p, data))
 
 
-for p in wait_list:
-    wait_test(*p)
-
-if fail:
-    exit()
+    for p in wait_list:
+        wait_test(*p)
 
 # Check Images
 
@@ -451,14 +536,7 @@ for filename in os.listdir(workdir):
         imgs.append(filename)
 print_ok(",".join(imgs))
 
-# Configs
-
-print_check("Configuração")
-import json
-data_file = open(os.path.join(workdir, 'config.json'))
-data = json.load(data_file)
-data_file.close()
-print_ok()
+# Markdown
 
 load_test_re = re.compile('(?P<pre>.*)!TESTE!(?P<file>\d+)!(?P<pos>.*)')
 include_re = re.compile('(?P<pre>.*)include\(\"(?P<file>[^\"]+)\"\)(?P<pos>.*)')
@@ -471,7 +549,7 @@ def parse_md(input, output):
             line = m.group('pre')
             input.insert(0,m.group('pos'))
             input.insert(0,"    ```\n\n")
-            input.insert(0,'include("tests/arq'+m.group('file')+'/arq'+m.group('file')+'.out")\n')
+            input.insert(0,'include("tests/arq'+m.group('file')+'.out")\n')
             input.insert(0,"    ```\n")
             input.insert(0,"* [Saída](dados/arq"+m.group('file')+".res)\n\n")
             input.insert(0,"    ```\n\n")
@@ -584,6 +662,9 @@ CPU_LIMIT: %(cpu_limit)s  # Tempo maximo de processamento em segundos
 TEST_CASES:        [%(open_tests)s] # Testes abertos
 HIDDEN_TEST_CASES: [%(hidden_tests)s]  # Testes fechados
 
+EXHIBIT_AUX_FILES: [%(aux_files)s]
+SYM_LINKS: [%(sym_links)s] # Aux presentes na execução
+
 KEEP: %(keep)s  # Número de submissões a preservar de cada aluno
 TASK_DESCRIPTION_PAGE: enunciado.html
 
@@ -594,7 +675,7 @@ TASK_DESCRIPTION_PAGE: enunciado.html
 rdir = os.path.join(workdir, "releases")
 shutil.rmtree(rdir, ignore_errors=True)
 os.mkdir(rdir)
-for release in data["releases"]:
+for release in CONFIG["releases"]:
     print_header("Instalador "+release["name"])
     print_check("Criando diretório")
     d = os.path.join(tmpdir, release["name"])
@@ -606,7 +687,7 @@ for release in data["releases"]:
         print_error("Diretório " + d +" já existe")
         continue
 
-    ds = os.path.join(d, data["task"]["id"])
+    ds = os.path.join(d, CONFIG["task"]["id"])
     os.mkdir(ds)
     print_ok()
 
@@ -616,11 +697,11 @@ for release in data["releases"]:
     if "description" not in release or release["description"]:
         print_check("Editando HTML")
         cmd = dict()
-        cmd["id"] = data["task"]["id"]
-        cmd["max_submissions"] = str(data["submissions"]["maximum"])
+        cmd["id"] = CONFIG["task"]["id"]
+        cmd["max_submissions"] = str(CONFIG["submissions"]["maximum"])
         cmd["deadline"] = release["end_time"].strftime("%d/%m/%Y %H:%M:%S")
-        cmd["title"] = data["task"]["title"]
-        cmd["basename"] = data["submissions"]["basename"] % cmd
+        cmd["title"] = CONFIG["task"]["title"]
+        cmd["basename"] = CONFIG["submissions"]["basename"] % cmd
         rhtml = list()
         parse_html(html[:], rhtml, cmd)
         print_ok()
@@ -644,18 +725,39 @@ for release in data["releases"]:
             shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
     print_ok()
 
+    saux = os.path.join(workdir, "aux")
+    daux = os.path.join(ds, "aux")
+    os.mkdir(daux)
+    exib_aux = list()
+    if os.path.isdir(saux) and ("aux" not in release or release["aux"] != False):
+        print_check("Copiando Auxiliares")
+        for filename in os.listdir(saux):
+            shutil.copy(os.path.join(saux, filename), daux)
+            if "aux" in release and release["aux"] == True:
+                exib_aux.append(filename)
+        print_ok()
+
     print_check("Copiando solução")
     dsols = os.path.join(ds, "sols")
     os.mkdir(dsols)
-    for filename in os.listdir(os.path.join(workdir, "solution")):
-        shutil.copy(os.path.join(workdir, "solution", filename), dsols)
+    sym_links = list()
+    for lang, L in Langs.items():
+        if lang == CONFIG["solution"]["language"]:
+            L.copy(dsols)
+        if L.config and "public" in L.config:
+            for filename in L.config["public"]:
+                shutil.copy(os.path.join(workdir, "solution", lang, filename), daux)
+                sym_links.append(filename)
+                if "aux" in release and release["aux"] == True:
+                    exib_aux.append(filename)
+
     print_ok()
 
     print_check("Gerando tarefa.cfg")
     cfgd = dict()
-    cfgd["id"] = data["task"]["id"]
+    cfgd["id"] = CONFIG["task"]["id"]
     if release["title"]:
-        cfgd["title"] = data["task"]["title"]
+        cfgd["title"] = CONFIG["task"]["title"]
     else:
         cfgd["title"] = "Unknown"
     cfgd["start_time"] = release["start_time"].strftime("%H:%M:%S")
@@ -674,12 +776,18 @@ for release in data["releases"]:
             cfgd["open_tests"] = '"' + '","'.join(x for x in sorted(tests[ "open"] +tests["hidden"])) + '"'
         else:
             cfgd["open_tests"] = '"' + '","'.join(x for x in tests["open"]) + '"'
-    cfgd["language"] = data["solution"]["language"]
-    cfgd["languages"] = '"' + '","'.join(x for x in data["submissions"]["languages"]) + '"'
-    cfgd["cpu_limit"] = str(data["limits"]["cpu"])
-    cfgd["keep"] = str(data["submissions"]["keep"])
-    cfgd["max_submissions"] = str(data["submissions"]["maximum"])
-    cfgd["basename"] = data["submissions"]["basename"] % cfgd
+    cfgd["language"] = CONFIG["solution"]["language"]
+    cfgd["languages"] = '"' + '","'.join(x for x in CONFIG["submissions"]["languages"].keys()) + '"'
+    cfgd["cpu_limit"] = str(CONFIG["limits"]["cpu"])
+    cfgd["keep"] = str(CONFIG["submissions"]["keep"])
+    cfgd["max_submissions"] = str(CONFIG["submissions"]["maximum"])
+    cfgd["basename"] = CONFIG["submissions"]["basename"] % cfgd
+    cfgd["sym_links"] = ''
+    if sym_links:
+        cfgd["sym_links"] = '"' + '","'.join(x for x in sym_links) + '"'
+    cfgd["aux_files"] = ''
+    if exib_aux:
+        cfgd["aux_files"] = '"' + '","'.join(x for x in exib_aux) + '"'
 
     cfg = open(os.path.join(ds, "tarefa.cfg"), "w")
     write_cfg(cfg, cfgd)
@@ -687,7 +795,7 @@ for release in data["releases"]:
     print_ok()
 
     print_check("Compactando")
-    shutil.make_archive(os.path.join(rdirr, str(data["task"]["id"])), 'zip', root_dir=d, base_dir=str(data["task"]["id"]))
+    shutil.make_archive(os.path.join(rdirr, str(CONFIG["task"]["id"])), 'zip', root_dir=d, base_dir=str(CONFIG["task"]["id"]))
     print_ok()
 
     if "shareable" in release:
@@ -695,7 +803,7 @@ for release in data["releases"]:
         shareable = release["shareable"]
 
         print_check("Criando diretório")
-        dshare = os.path.join(d, "enunciado_" + str(data["task"]["id"]))
+        dshare = os.path.join(d, "enunciado_" + str(CONFIG["task"]["id"]))
         os.mkdir(dshare)
         print_ok()
 
@@ -705,21 +813,37 @@ for release in data["releases"]:
         if "open_tests" in shareable and shareable["open_tests"]:
             for filename in tests["open"]:
                 shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".out"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".err"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".out"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".err"), dt)
         if "hidden_tests" in shareable and shareable["hidden_tests"]:
             for filename in tests["hidden"]:
                 shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".out"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename, "arq" + filename + ".err"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".out"), dt)
+                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".err"), dt)
         print_ok()
+
+        if "aux" in shareable and shareable["aux"]:
+            print_check("Copiando Aux")
+            saux = os.path.join(workdir, "aux")
+            daux = os.path.join(dshare, "aux")
+            os.mkdir(daux)
+            if os.path.isdir(saux):
+                for filename in os.listdir(saux):
+                    shutil.copy(os.path.join(saux, filename), daux)
+            for lang, L in Langs.items():
+                if L.config and "public" in L.config:
+                    for filename in L.config["public"]:
+                        shutil.copy(os.path.join(workdir, "solution", lang, filename), daux)
+            print_ok()
 
         if "solution" in shareable and shareable["solution"]:
             print_check("Copiando solução")
             dsols = os.path.join(dshare, "solucao")
             os.mkdir(dsols)
-            for filename in os.listdir(os.path.join(workdir, "solution")):
-                shutil.copy(os.path.join(workdir, "solution", filename), dsols)
+            for lang, L in Langs.items():
+                dsols2 = os.path.join(dsols, lang)
+                os.mkdir(dsols2)
+                L.copy(dsols2)
             print_ok()
 
         if "description" in shareable and shareable["description"]:
@@ -736,6 +860,7 @@ for release in data["releases"]:
             shutil.copy(os.path.join(workdir, "enunciado.md"), dshare)
             print_ok()
 
+
         print_check("Compactando")
-        shutil.make_archive(os.path.join(rdirr, "enunciado_" + str(data["task"]["id"])), 'zip', root_dir=d, base_dir="enunciado_" + str(data["task"]["id"]))
+        shutil.make_archive(os.path.join(rdirr, "enunciado_" + str(CONFIG["task"]["id"])), 'zip', root_dir=d, base_dir="enunciado_" + str(CONFIG["task"]["id"]))
         print_ok()

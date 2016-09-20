@@ -1,1 +1,1 @@
-../enunciado/enunciado.md
+../com_gerador_c/enunciado.md

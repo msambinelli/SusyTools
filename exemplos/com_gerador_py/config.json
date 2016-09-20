@@ -1,1 +1,96 @@
-../com_gerador_c/config.json
+{
+  "task" : {
+    "id": "00",
+    "title": "Contagem de linhas e caracteres",
+    "content": {
+      "conditional" : "required",
+      "io": "required",
+      "functions": "no",
+      "recursion": "no",
+      "array": "no",
+      "sort": "no",
+      "string": "yes",
+      "matrix": "no",
+      "struct" : "no",
+      "files" : "no"
+    }
+  },
+  "releases": [
+    {
+      "name": "students",
+      "start_time": "2016-04-20 00:00:01",
+      "end_time": "2016-04-20 00:00:01",
+      "title": true,
+      "description": true,
+      "open_tests": true,
+      "hidden_tests": true,
+      "aux": true,
+      "shareable": {
+        "open_tests": true,
+        "hidden_tests": false,
+        "solution": false,
+        "description": true,
+        "aux": true,
+        "md": false
+      }
+    },
+    {
+      "name": "staff",
+      "start_time": "2016-04-20 00:00:01",
+      "end_time": "2016-04-20 00:00:01",
+      "title": false,
+      "description": false,
+      "open_tests": "hidden",
+      "hidden_tests": "hidden",
+      "aux": "hidden",
+      "shareable": {
+        "open_tests": true,
+        "hidden_tests": true,
+        "solution": false,
+        "description": true,
+        "aux": true,
+        "md": false
+      }
+    },
+    {
+      "name": "staff-preview",
+      "start_time": "1900-01-01 00:00:01",
+      "end_time": "1900-01-01 23:59:59",
+      "title": false,
+      "description": false,
+      "open_tests": false,
+      "hidden_tests": false,
+      "aux": false,
+      "shareable": {
+        "open_tests": false,
+        "hidden_tests": false,
+        "solution": false,
+        "description": true,
+        "aux": true,
+        "md": true
+      }
+    }
+  ],
+  "generator": {
+    "language": "PY3",
+    "main": "generator.py"
+  },
+  "limits" : {
+    "file" : 1000,
+    "data" : 1000,
+    "stack" : 1000,
+    "cpu" : 5
+  },
+  "solution" : {
+    "language" : "C"
+  },
+  "submissions" : {
+    "basename" : "lab%(id)s",
+    "maximum" : 10,
+    "keep" : 10,
+    "languages" : {
+      "C" : true,
+      "PY3" : true
+    }
+  }
+}

@@ -81,7 +81,16 @@
     "cpu" : 5
   },
   "solution" : {
-    "language" : "C"
+    "language" : "C",
+    "languages" : {
+      "C": {
+        "public" : ["lab00_main.c"]
+      },
+      "PY3": {
+        "public" : ["lab00_main.py"],
+        "main" : "lab00_main.py"
+      }
+    }
   },
   "submissions" : {
     "basename" : "lab%(id)s",
