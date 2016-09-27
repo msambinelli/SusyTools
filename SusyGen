@@ -15,6 +15,7 @@ import datetime
 import stat
 import shutil
 
+CONFIG = None
 
 ################################################################################
 # Log and Control
@@ -120,7 +121,8 @@ class Language:
 class LanguageC(Language):
     def __init__(self, srcdir, tmpdir, config):
         Language.__init__(self, srcdir, tmpdir, config)
-        self.executable = os.path.join(tmpdir, "exec")
+        global CONFIG
+        self.executable = os.path.join(tmpdir, CONFIG["submissions"]["basename"])
         self.header = list()
     def compile(self):
         Language.compile(self)
@@ -165,6 +167,11 @@ class LanguageC(Language):
 class LanguagePY3(Language):
     def __init__(self, srcdir, tmpdir, config):
         Language.__init__(self, srcdir, tmpdir, config)
+        global CONFIG
+        self.executable = CONFIG["submissions"]["basename"]+".py"
+        if "main" in self.config:
+            self.executable = self.config["main"]
+
     def compile(self):
         Language.compile(self)
         print_check("Compilando PY3")
@@ -175,14 +182,13 @@ class LanguagePY3(Language):
                 shutil.copy(os.path.join(self.srcdir, file), self.tmpdir)
         if not self.source:
             print_error("Falta código da solução.")
+        elif self.executable not in self.source:
+            print_error("Falta código da main: {0:s}".format(self.executable))
         else:
             print_ok()
     def run(self, stdin, stdout, stderr, args):
         Language.run(self, stdin, stdout, stderr, args)
-        executable = "main.py"
-        if "main" in self.config:
-            executable = self.config["main"]
-        Args = ["python3", os.path.join(self.tmpdir, executable)]
+        Args = ["python3", os.path.join(self.tmpdir, self.executable)]
         if args:
             Args.extend(args)
         return subprocess.Popen(Args, stdin=stdin, stdout=stdout, stderr=stderr)
@@ -233,6 +239,10 @@ config_file = open(os.path.join(workdir, 'config.json'))
 CONFIG = json.load(config_file)
 config_file.close()
 print_ok()
+
+cmd = dict()
+cmd["id"] = CONFIG["task"]["id"]
+CONFIG["submissions"]["basename"] = CONFIG["submissions"]["basename"] % cmd
 
 # Detecting testes
 tests = dict()
