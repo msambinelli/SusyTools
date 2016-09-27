@@ -215,6 +215,8 @@ parser.add_argument('directory', metavar='directory', type=str, nargs='?',
                     help='Diretório do enunciado')
 parser.add_argument('--keep', action='store_true',
                     help='Não excluir arquivos temporários')
+parser.add_argument('--new', action='store_true',
+                    help='Sobreescreve testes com gerador')
 parser.add_argument('--seq', action='store_true',
                     help='Executar sequencialmente')
 args = parser.parse_args()
@@ -237,7 +239,6 @@ tests = dict()
 
 tests["open"] = list()
 tests["gopen"] = list()
-tests["ropen"] = list()
 d = os.path.join(workdir, "tests", "open")
 if os.path.isdir(d):
     for file in os.listdir(d):
@@ -249,23 +250,13 @@ if os.path.isdir(d):
             tests["gopen"].append(filename)
         elif file_extension == ".in":
             tests["open"].append(filename)
-        elif file_extension == ".out":
-            tests["ropen"].append(filename)
-    for filename in tests["open"]:
-        if filename in tests["gopen"]:
-            print("Atenção: O teste aberto", filename, "será sobrescrito.")
-            tests["open"].remove(filename)
-    for filename in tests["ropen"]:
-        if filename in tests["gopen"]:
-            print("Atenção: A resposta aberta", filename, "será sobrescrita.")
-            tests["ropen"].remove(filename)
-        elif filename not in tests["open"]:
-            print("Atenção: A resposta aberta", filename, "será ignorada.")
-            tests["ropen"].remove(filename)
+    if args.new:
+        tests["open"] = [name for name in tests["open"] if name not in tests["gopen"]]
+    else:
+        tests["gopen"] = [name for name in tests["gopen"] if name not in tests["open"]]
 
 tests["hidden"] = list()
 tests["ghidden"] = list()
-tests["rhidden"] = list()
 d = os.path.join(workdir, "tests", "hidden")
 if os.path.isdir(d):
     for file in os.listdir(d):
@@ -279,17 +270,10 @@ if os.path.isdir(d):
             tests["ghidden"].append(filename)
         elif file_extension == ".in":
             tests["hidden"].append(filename)
-    for filename in tests["hidden"]:
-        if filename in tests["ghidden"]:
-            print("Atenção: O teste fechado", filename, "será sobrescrito.")
-            tests["hidden"].remove(filename)
-    for filename in tests["rhidden"]:
-        if filename in tests["ghidden"]:
-            print("Atenção: A resposta fechada", filename, "será sobrescrita.")
-            tests["rhidden"].remove(filename)
-        elif filename not in tests["hidden"]:
-            print("Atenção: A resposta fechada", filename, "será ignorada.")
-            tests["rhidden"].remove(filename)
+    if args.new:
+        tests["hidden"] = [name for name in tests["hidden"] if name not in tests["ghidden"]]
+    else:
+        tests["ghidden"] = [name for name in tests["ghidden"] if name not in tests["hidden"]]
 
 for key, value in tests.items():
     value.sort()
@@ -342,16 +326,19 @@ if tests["gopen"] or tests["ghidden"]:
 d = os.path.join(tmpdir, "tests")
 os.mkdir(d)
 
-if tests["open"] or tests["ropen"] or tests["hidden"] or tests["rhidden"]:
+if tests["open"] or tests["hidden"]:
     print_check("Copiando testes estáticos")
-    for file in tests["open"]:
-        shutil.copy(os.path.join(workdir, "tests", "open", "arq" + file + ".in"), d)
-    for file in tests["ropen"]:
-        shutil.copy(os.path.join(workdir, "tests", "open", "arq" + file + ".out"), d)
-    for file in tests["hidden"]:
-        shutil.copy(os.path.join(workdir, "tests", "hidden", "arq" + file + ".in"), d)
-    for file in tests["rhidden"]:
-        shutil.copy(os.path.join(workdir, "tests", "hidden", "arq" + file + ".out"), d)
+    for type in ["open", "hidden"]:
+        target = os.path.join(workdir, "tests", type)
+        for file in tests[type]:
+            filename = os.path.join(target, "arq" + file + ".in")
+            shutil.copy(filename, d)
+            filename = os.path.join(target, "arq" + file + ".out")
+            if os.path.isfile(filename):
+                shutil.copy(filename, d)
+            filename = os.path.join(target, "arq" + file + ".err")
+            if os.path.isfile(filename):
+                shutil.copy(filename, d)
     print_ok()
 
 def wait_gentest(p, data):
@@ -388,18 +375,14 @@ if tests["gopen"] or tests["ghidden"]:
 
     wait_list = list()
 
-    while tests["gopen"]:
-        filename = tests["gopen"].pop(0)
+    for filename in tests["gopen"]:
         run_gentest("open", filename, wait_list)
         tests["open"].append(filename)
-    del(tests["gopen"])
     tests["open"].sort()
 
-    while tests["ghidden"]:
-        filename = tests["ghidden"].pop(0)
+    for filename in tests["ghidden"]:
         run_gentest("hidden", filename, wait_list)
         tests["hidden"].append(filename)
-    del(tests["ghidden"])
     tests["hidden"].sort()
 
     for p in wait_list:
@@ -523,6 +506,26 @@ for lang, L in Langs.items():
 
     for p in wait_list:
         wait_test(*p)
+
+# Salvando Testes
+if args.new:
+    print_header("Salvando Testes")
+    if tests["gopen"]:
+        print_check("Copiando testes abertos")
+        target = os.path.join(workdir, "tests", "open")
+        for file in tests["gopen"]:
+            shutil.copy(os.path.join(d, "arq" + file + ".in"), target)
+            shutil.copy(os.path.join(d, "arq" + file + ".out"), target)
+            shutil.copy(os.path.join(d, "arq" + file + ".err"), target)
+        print_ok()
+    if tests["ghidden"]:
+        print_check("Copiando testes fechados")
+        target = os.path.join(workdir, "tests", "hidden")
+        for file in tests["ghidden"]:
+            shutil.copy(os.path.join(d, "arq" + file + ".in"), target)
+            shutil.copy(os.path.join(d, "arq" + file + ".out"), target)
+            shutil.copy(os.path.join(d, "arq" + file + ".err"), target)
+        print_ok()
 
 # Check Images
 
