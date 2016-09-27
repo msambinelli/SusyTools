@@ -610,7 +610,6 @@ with urllib.request.urlopen(req) as response:
     md.write(html)
     md.write(HTML_TAIL)
     md.close()
-    shutil.copy(md.name, workdir)
 md = HTML_HEADER.splitlines(keepends=True)
 md.extend(html.splitlines(keepends=True))
 md.extend(HTML_TAIL.splitlines(keepends=True))
@@ -674,6 +673,20 @@ TASK_DESCRIPTION_PAGE: enunciado.html
 ##||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ''' % data
     filename.write(cfg)
+
+print_check("HTML de referência")
+cmd = dict()
+cmd["id"] = CONFIG["task"]["id"]
+cmd["max_submissions"] = str(CONFIG["submissions"]["maximum"])
+cmd["deadline"] = "%d/%m/%Y %H:%M:%S"
+cmd["title"] = CONFIG["task"]["title"]
+cmd["basename"] = CONFIG["submissions"]["basename"] % cmd
+rhtml = list()
+parse_html(html[:], rhtml, cmd)
+desc = open(os.path.join(workdir, "enunciado.html"), "w")
+desc.writelines(rhtml)
+desc.close()
+print_ok()
 
 rdir = os.path.join(workdir, "releases")
 shutil.rmtree(rdir, ignore_errors=True)
