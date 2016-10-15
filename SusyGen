@@ -14,6 +14,9 @@ import mimetypes
 import datetime
 import stat
 import shutil
+import time
+import threading
+import math
 
 CONFIG = None
 
@@ -102,6 +105,39 @@ HTML_TAIL = """
 """
 
 ################################################################################
+# Timer Process
+
+class TimerPopen:
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.process = None
+        self.elapsed = 0
+        self.returncode = -1
+
+    def run(self):
+        self.thread = threading.Thread(target=self.processthread)
+        self.thread.start()
+
+    def wait(self):
+        self.thread.join()
+
+    def processthread(self):
+        start = time.time()
+
+        self.process = subprocess.Popen(*self.args, **self.kwargs)
+        try:
+            self.process.wait(timeout=10)
+        except TimeoutExpired:
+            self.process.kill()
+            self.process.wait()
+
+        done = time.time()
+        self.elapsed = done - start
+        self.returncode = self.process.returncode
+
+
+################################################################################
 # Languages
 
 class Language:
@@ -157,7 +193,9 @@ class LanguageC(Language):
         Args = [self.executable]
         if args:
             Args.extend(args)
-        return subprocess.Popen(Args, stdin=stdin, stdout=stdout, stderr=stderr)
+        p = TimerPopen(Args, stdin=stdin, stdout=stdout, stderr=stderr)
+        p.run()
+        return p
     def copy(self, target):
         Language.copy(self, target)
         for file in self.header:
@@ -191,7 +229,9 @@ class LanguagePY3(Language):
         Args = ["python3", os.path.join(self.tmpdir, self.executable)]
         if args:
             Args.extend(args)
-        return subprocess.Popen(Args, stdin=stdin, stdout=stdout, stderr=stderr)
+        p = TimerPopen(Args, stdin=stdin, stdout=stdout, stderr=stderr)
+        p.run()
+        return p
 
 def getLanguage(lang, srcdir, tmpdir, config):
     L = "Language" + lang
@@ -239,6 +279,12 @@ config_file = open(os.path.join(workdir, 'config.json'))
 CONFIG = json.load(config_file)
 config_file.close()
 print_ok()
+
+#Default Values
+if "limits" not in CONFIG:
+    CONFIG["limits"] = dict()
+if "cpu" not in CONFIG["limits"]:
+    CONFIG["limits"]["cpu"] = 5
 
 cmd = dict()
 cmd["id"] = CONFIG["task"]["id"]
@@ -353,12 +399,12 @@ if tests["open"] or tests["hidden"]:
 
 def wait_gentest(p, data):
     print_check("Teste " + data["filename"])
-    p.wait(timeout=60)
+    p.wait()
     if p.returncode:
         print_error()
     else:
         print_ok()
-    print(str(p.stdout.read(), 'utf-8'))
+    print(str(p.process.stdout.read(), 'utf-8'))
 
 def run_gentest(t, filename, wait_list):
     global Gen
@@ -439,7 +485,7 @@ for lang in langs:
 
 def wait_test(p, data):
     print_check("Teste "+data["filename"])
-    p.wait(timeout=60)
+    p.wait()
 
     data["stdin"].close()
     data["stdin"] = data["stdin"].name
@@ -451,7 +497,7 @@ def wait_test(p, data):
     data["stderr"] = data["stderr"].name
 
     if p.returncode:
-        print_error()
+        print_error("Erro na execução")
         return
 
     stdout = os.path.join(data["swd"], "arq" + data["filename"] + ".out")
@@ -485,7 +531,12 @@ def wait_test(p, data):
     else:
         shutil.copy(data["stderr"], stderr)
 
-    print_ok()
+    elapsed = math.ceil(10 * p.elapsed)
+    if elapsed > data["config"]["limits"]["cpu"]:
+        data["config"]["limits"]["cpu"] = elapsed
+        print_warning(" OK {0:.3f}s".format(p.elapsed))
+    else:
+        print_ok(" OK {0:.3f}s".format(p.elapsed))
 
 
 d = os.path.join(tmpdir, "tests")
@@ -508,6 +559,7 @@ for lang, L in Langs.items():
             data["stdin"] = stdin
             data["stdout"] = stdout
             data["stderr"] = stderr
+            data["config"] = CONFIG
             if args.seq:
                 wait_test(p, data)
             else:
@@ -516,6 +568,15 @@ for lang, L in Langs.items():
 
     for p in wait_list:
         wait_test(*p)
+
+# Checando resultados:
+print_header("Limites")
+
+print_check("Verificando limite de CPU")
+if CONFIG["limits"]["cpu"] > 10:
+    print_error("{0:d}s! Limite do Susy: {1:d}s".format(CONFIG["limits"]["cpu"], 10))
+else:
+    print_ok(" OK {0:d}s".format(CONFIG["limits"]["cpu"]))
 
 # Salvando Testes
 if args.new:
