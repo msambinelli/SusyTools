@@ -730,7 +730,13 @@ MAIN_PROG_NAME: %(basename)s
 SELECT_PROCESSOR: False
 SUBMIT_FILES: ["*"]     # Submissão de um único arquivo, com nome próprio
 MAX_SUBMISSIONS: %(max_submissions)s
-CPU_LIMIT: %(cpu_limit)s  # Tempo maximo de processamento em segundos
+CORE_LIMIT: 0 # Tamanho máximo do arquivo core (bytes) 0/0
+CPU_LIMIT: %(cpu_limit)s  # Tempo maximo de processamento em segundos 1/10
+DATA_LIMIT: %(data_limit)s # Limite de tamanho do segmento de dados (kbytes) 100/1000
+FILE_LIMIT: %(file_limit)s # Tamanho máximo de arquivos gerados (blocos) 100/2000
+NOFILE_LIMIT: 10 # Número máximo de arquivos abertos num programa submetido 10/20
+NPROC_LIMIT: 10 # Número máximo de processos criados num programa submetido 10/10
+STACK_LIMIT: %(stack_limit)s  # Tamanho máximo da pilha de execução (bytes) 1000/10000
 
 TEST_CASES:        [%(open_tests)s] # Testes abertos
 HIDDEN_TEST_CASES: [%(hidden_tests)s]  # Testes fechados
@@ -866,6 +872,9 @@ for release in CONFIG["releases"]:
     cfgd["language"] = CONFIG["solution"]["language"]
     cfgd["languages"] = '"' + '","'.join(x for x in CONFIG["submissions"]["languages"].keys()) + '"'
     cfgd["cpu_limit"] = str(CONFIG["limits"]["cpu"])
+    cfgd["data_limit"] = str(CONFIG["limits"]["data"])
+    cfgd["file_limit"] = str(CONFIG["limits"]["file"])
+    cfgd["stack_limit"] = str(CONFIG["limits"]["stack"])
     cfgd["keep"] = str(CONFIG["submissions"]["keep"])
     cfgd["max_submissions"] = str(CONFIG["submissions"]["maximum"])
     cfgd["basename"] = CONFIG["submissions"]["basename"] % cfgd
