@@ -93,6 +93,9 @@ HTML_HEADER = """<!DOCTYPE html>
         max-width: 426px;
         vertical-align: top;
         }
+        .markdown-body h6 + ul li pre {
+          max-height: 400px;
+        }
     </style>
 </head>
 <body>
