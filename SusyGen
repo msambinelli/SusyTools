@@ -289,6 +289,32 @@ if "limits" not in CONFIG:
 if "cpu" not in CONFIG["limits"]:
     CONFIG["limits"]["cpu"] = 5
 
+if "input" not in CONFIG["solution"]:
+    CONFIG["solution"]["input"] = dict()
+if "std" not in CONFIG["solution"]["input"]:
+    CONFIG["solution"]["input"]["std"] = True
+if "extensions" not in CONFIG["solution"]["input"]:
+    CONFIG["solution"]["input"]["extensions"] = ["in"]
+
+if "output" not in CONFIG["solution"]:
+    CONFIG["solution"]["output"] = dict()
+if "std" not in CONFIG["solution"]["output"]:
+    CONFIG["solution"]["output"]["std"] = True
+if "extensions" not in CONFIG["solution"]["output"]:
+    CONFIG["solution"]["output"]["extensions"] = ["out"]
+elif len(CONFIG["solution"]["output"]["extensions"]) > 1:
+    print_error(msg="Susy somente suporta um arquivo de saída")
+if "filter" not in CONFIG["solution"]["output"]:
+    CONFIG["solution"]["output"]["filter"] = None
+
+if "stderr" not in CONFIG["solution"]:
+    CONFIG["solution"]["stderr"] = dict()
+if "std" not in CONFIG["solution"]["stderr"]:
+    CONFIG["solution"]["stderr"]["std"] = True
+if "extension" not in CONFIG["solution"]["stderr"]:
+    CONFIG["solution"]["stderr"]["extension"] = "err"
+
+
 cmd = dict()
 cmd["id"] = CONFIG["task"]["id"]
 CONFIG["submissions"]["basename"] = CONFIG["submissions"]["basename"] % cmd
@@ -302,12 +328,13 @@ d = os.path.join(workdir, "tests", "open")
 if os.path.isdir(d):
     for file in os.listdir(d):
         filename, file_extension = os.path.splitext(file)
-        if not filename.startswith("arq"):
+        if not filename.startswith("arq") or not file_extension.startswith("."):
             print("Ignoring open test:", file)
         filename = filename[3:]
-        if file_extension == ".pre":
+        file_extension = file_extension[1:]
+        if file_extension == "pre":
             tests["gopen"].append(filename)
-        elif file_extension == ".in":
+        elif file_extension == CONFIG["solution"]["input"]["extensions"][0]:
             tests["open"].append(filename)
     if args.new:
         tests["open"] = [name for name in tests["open"] if name not in tests["gopen"]]
@@ -320,14 +347,15 @@ d = os.path.join(workdir, "tests", "hidden")
 if os.path.isdir(d):
     for file in os.listdir(d):
         filename, file_extension = os.path.splitext(file)
-        if not filename.startswith("arq"):
+        if not filename.startswith("arq") or not file_extension.startswith("."):
             print("Ignoring hidden test:", file)
         filename = filename[3:]
+        file_extension = file_extension[1:]
         if filename in tests["open"] or filename in tests["gopen"]:
             print("Atenção: O teste fechado", filename, "será inogrado.")
-        elif file_extension == ".pre":
+        elif file_extension == "pre":
             tests["ghidden"].append(filename)
-        elif file_extension == ".in":
+        elif file_extension == CONFIG["solution"]["input"]["extensions"][0]:
             tests["hidden"].append(filename)
     if args.new:
         tests["hidden"] = [name for name in tests["hidden"] if name not in tests["ghidden"]]
@@ -389,15 +417,13 @@ if tests["open"] or tests["hidden"]:
     print_check("Copiando testes estáticos")
     for type in ["open", "hidden"]:
         target = os.path.join(workdir, "tests", type)
-        for file in tests[type]:
-            filename = os.path.join(target, "arq" + file + ".in")
-            shutil.copy(filename, d)
-            filename = os.path.join(target, "arq" + file + ".out")
-            if os.path.isfile(filename):
-                shutil.copy(filename, d)
-            filename = os.path.join(target, "arq" + file + ".err")
-            if os.path.isfile(filename):
-                shutil.copy(filename, d)
+        for filename in tests[type]:
+            exts = CONFIG["solution"]["input"]["extensions"] + CONFIG["solution"]["output"]["extensions"]
+            exts.append(CONFIG["solution"]["stderr"]["extension"])
+            for ext in exts:
+              filepath = os.path.join(target, "arq{0:s}.{1:s}".format(filename, ext))
+              if os.path.isfile(filepath):
+                  shutil.copy(filepath, d)
     print_ok()
 
 def wait_gentest(p, data):
@@ -411,18 +437,18 @@ def wait_gentest(p, data):
 
 def run_gentest(t, filename, wait_list):
     global Gen
-    prefile = os.path.join(workdir, "tests", t, "arq" + filename + ".pre")
-    infile = os.path.join(d, "arq" + filename + ".in")
-    outfile = os.path.join(d, "arq" + filename + ".out")
-    errfile = os.path.join(d, "arq" + filename + ".err")
-    p = Gen.run(None, subprocess.PIPE, subprocess.STDOUT, [prefile, infile, outfile, errfile])
+    global CONFIG
+    params = list()
+    params.append(os.path.join(workdir, "tests", t, "arq" + filename + ".pre"))
+    params.extend([os.path.join(d, "arq{0:s}.{1:s}".format(filename, ext)) for ext in CONFIG["solution"]["input"]["extensions"]])
+    params.extend([os.path.join(d, "arq{0:s}.{1:s}".format(filename, ext)) for ext in CONFIG["solution"]["output"]["extensions"]])
+    params.append(os.path.join(d, "arq{0:s}.{1:s}".format(filename, CONFIG["solution"]["stderr"]["extension"])))
+
+    p = Gen.run(None, subprocess.PIPE, subprocess.STDOUT, params)
 
     data = dict()
     data["filename"] = filename
-    data["pre"] = prefile
-    data["in"] = infile
-    data["out"] = outfile
-    data["err"] = errfile
+    data["files"] = params
     if args.seq:
         wait_gentest(p, data)
     else:
@@ -491,48 +517,29 @@ def wait_test(p, data):
     p.wait()
 
     data["stdin"].close()
-    data["stdin"] = data["stdin"].name
-
     data["stdout"].close()
-    data["stdout"] = data["stdout"].name
-
     data["stderr"].close()
-    data["stderr"] = data["stderr"].name
 
     if p.returncode:
         print_error("Erro na execução")
         return
 
-    stdout = os.path.join(data["swd"], "arq" + data["filename"] + ".out")
-    if os.path.isfile(stdout):
-        stdout2 = open(data["stdout"])
-        stdout = open(stdout)
-        diff = list(difflib.unified_diff(stdout.readlines(), stdout2.readlines(), fromfile='Correto', tofile='Executado'))
-        stdout.close()
-        stdout2.close()
+    for d in data["difflist"]:
+        result = os.path.join(data["cwd"], d)
+        reference = os.path.join(data["swd"], d)
+        if os.path.isfile(reference):
+            res = open(result)
+            ref = open(reference)
+            diff = list(difflib.unified_diff(ref.readlines(), res.readlines(), fromfile='Correto', tofile='Executado'))
+            res.close()
+            ref.close()
 
-        if diff:
-            print_error("Diferenças encontradas no stdout")
-            sys.stdout.writelines(diff)
-            fail = True
-            return
-    else:
-        shutil.copy(data["stdout"], stdout)
-
-    stderr = os.path.join(data["swd"], "arq" + data["filename"] + ".err")
-    if os.path.isfile(stderr):
-        stdout2 = open(data["stderr"])
-        stdout = open(stderr)
-        diff = list(difflib.unified_diff(stdout.readlines(), stdout2.readlines(), fromfile='Correto', tofile='Executado'))
-        stdout.close()
-        stdout2.close()
-
-        if diff:
-            print_error("Diferenças encontradas no stderr")
-            sys.stdout.writelines(diff)
-            return
-    else:
-        shutil.copy(data["stderr"], stderr)
+            if diff:
+                print_error("Diferenças encontradas no {0:s}".format(d))
+                sys.stdout.writelines(diff)
+                return
+        else:
+            shutil.copy(result, reference)
 
     elapsed = math.ceil(10 * p.elapsed)
     if elapsed > data["config"]["limits"]["cpu"]:
@@ -547,26 +554,50 @@ for lang, L in Langs.items():
     print_header("Rodando os testes para solução em "+lang)
     wait_list = list()
     for filename in sorted(tests["open"]+tests["hidden"]):
-            ld = os.path.join(d, "arq" + filename + "_" + lang)
-            os.mkdir(ld)
-            stdin = open(os.path.join(d, "arq" + filename + ".in"))
-            stdout = open(os.path.join(ld, "arq" + filename + ".out"), 'w')
-            stderr = open(os.path.join(ld, "arq" + filename + ".err"), 'w')
+        ld = os.path.join(d, "arq" + filename + "_" + lang)
+        os.mkdir(ld)
+        test_args = list()
 
-            p = L.run(stdin, stdout, stderr, None)
+        tmp_args = [os.path.join(d, "arq{0:s}.{1:s}".format(filename, ext)) for ext in CONFIG["solution"]["input"]["extensions"]]
+        if CONFIG["solution"]["input"]["std"]:
+            stdin = open(tmp_args.pop(0), "r")
+        else:
+            stdin = open(os.devnull, "r")
+        test_args.extend(tmp_args)
 
-            data = dict()
-            data["filename"] = filename
-            data["swd"] = d
-            data["cwd"] = ld
-            data["stdin"] = stdin
-            data["stdout"] = stdout
-            data["stderr"] = stderr
-            data["config"] = CONFIG
-            if args.seq:
-                wait_test(p, data)
-            else:
-                wait_list.append((p, data))
+        tmp_args = [os.path.join(ld, "arq{0:s}.{1:s}".format(filename, ext)) for ext in CONFIG["solution"]["output"]["extensions"]]
+        if CONFIG["solution"]["output"]["std"]:
+            stdout = open(tmp_args.pop(0), "w")
+        else:
+            stdout = open(os.devnull, "w")
+        test_args.extend(tmp_args)
+
+        tmp_args = os.path.join(ld, "arq{0:s}.{1:s}".format(filename, CONFIG["solution"]["stderr"]["extension"]))
+        if CONFIG["solution"]["stderr"]["std"]:
+            stderr = open(tmp_args, "w")
+        else:
+            stderr = open(os.devnull, "w")
+            test_args.append(tmp_args)
+
+        difflist = list()
+        difflist.extend(["arq{0:s}.{1:s}".format(filename, ext) for ext in CONFIG["solution"]["output"]["extensions"]])
+        difflist.append("arq{0:s}.{1:s}".format(filename, CONFIG["solution"]["stderr"]["extension"]))
+
+        p = L.run(stdin, stdout, stderr, test_args)
+
+        data = dict()
+        data["filename"] = filename
+        data["swd"] = d
+        data["cwd"] = ld
+        data["stdin"] = stdin
+        data["stdout"] = stdout
+        data["stderr"] = stderr
+        data["difflist"] = difflist
+        data["config"] = CONFIG
+        if args.seq:
+            wait_test(p, data)
+        else:
+            wait_list.append((p, data))
 
 
     for p in wait_list:
@@ -584,21 +615,16 @@ else:
 # Salvando Testes
 if args.new:
     print_header("Salvando Testes")
-    if tests["gopen"]:
-        print_check("Copiando testes abertos")
-        target = os.path.join(workdir, "tests", "open")
-        for file in tests["gopen"]:
-            shutil.copy(os.path.join(d, "arq" + file + ".in"), target)
-            shutil.copy(os.path.join(d, "arq" + file + ".out"), target)
-            shutil.copy(os.path.join(d, "arq" + file + ".err"), target)
-        print_ok()
-    if tests["ghidden"]:
-        print_check("Copiando testes fechados")
-        target = os.path.join(workdir, "tests", "hidden")
-        for file in tests["ghidden"]:
-            shutil.copy(os.path.join(d, "arq" + file + ".in"), target)
-            shutil.copy(os.path.join(d, "arq" + file + ".out"), target)
-            shutil.copy(os.path.join(d, "arq" + file + ".err"), target)
+    for t in ["open", "hidden"]:
+        target = os.path.join(workdir, "tests", t)
+        print_check("Copiando testes para tests/{0:s}".format(t))
+        for filename in tests["g"+t]:
+            args = list()
+            args.extend([os.path.join(d, "arq{0:s}.{1:s}".format(filename, ext)) for ext in CONFIG["solution"]["input"]["extensions"]])
+            args.extend([os.path.join(d, "arq{0:s}.{1:s}".format(filename, ext)) for ext in CONFIG["solution"]["output"]["extensions"]])
+            args.append(os.path.join(d, "arq{0:s}.{1:s}".format(filename, CONFIG["solution"]["stderr"]["extension"])))
+            for file in args:
+                shutil.copy(file, target)
         print_ok()
 
 # Check Images
@@ -741,6 +767,13 @@ NOFILE_LIMIT: 10 # Número máximo de arquivos abertos num programa submetido 10
 NPROC_LIMIT: 10 # Número máximo de processos criados num programa submetido 10/10
 STACK_LIMIT: %(stack_limit)s  # Tamanho máximo da pilha de execução (bytes) 1000/10000
 
+INPUTPART: %(input_part)s
+OUTPUTPART: %(output_part)s
+ERRORPART: %(error_part)s
+%(suffix)s
+
+OUTPUT_FILTER: %(output_filter)s
+
 TEST_CASES:        [%(open_tests)s] # Testes abertos
 HIDDEN_TEST_CASES: [%(hidden_tests)s]  # Testes fechados
 
@@ -813,12 +846,11 @@ for release in CONFIG["releases"]:
     print_check("Copiando testes")
     dt = os.path.join(ds, "dados")
     os.mkdir(dt)
-    if "open_tests" not in release or release["open_tests"]:
-        for filename in tests["open"]:
-            shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
-    if "hidden_tests" not in release or release["hidden_tests"]:
-        for filename in tests["hidden"]:
-            shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
+    for t in ["open", "hidden"]:
+        if t+"_tests" not in release or release[t+"_tests"]:
+            for filename in tests[t]:
+                for ext in CONFIG["solution"]["input"]["extensions"]:
+                    shutil.copy(os.path.join(tmpdir, "tests", "arq{0:s}.{1:s}".format(filename, ext)), dt)
     print_ok()
 
     saux = os.path.join(workdir, "aux")
@@ -888,6 +920,36 @@ for release in CONFIG["releases"]:
     if exib_aux:
         cfgd["aux_files"] = '"' + '","'.join(x for x in exib_aux) + '"'
 
+    cfgd["suffix"] = ""
+    cfgd["input_part"] = ""
+    if CONFIG["solution"]["input"]["std"]:
+        cfgd["input_part"] += " <"
+    for i, ext in enumerate(CONFIG["solution"]["input"]["extensions"]):
+        cfgd["input_part"] += " arq%(test)s.{0:s}".format(ext)
+        I = ""
+        if i:
+            I = str(i)
+        cfgd["suffix"] += "INPUT_SUFFIX{1:s}: '.{0:s}'\n".format(ext, I)
+    cfgd["output_part"] = ""
+    if CONFIG["solution"]["output"]["std"]:
+        cfgd["output_part"] += " >"
+    for i, ext in enumerate(CONFIG["solution"]["output"]["extensions"]):
+        cfgd["output_part"] += " arq%(test)s.{0:s}".format(ext)
+        I = ""
+        if i:
+            I = str(i)
+        cfgd["suffix"] += "OUTPUT_SUFFIX{1:s}: '.{0:s}'\n".format(ext, I)
+    cfgd["error_part"] = ""
+    if CONFIG["solution"]["stderr"]["std"]:
+        cfgd["error_part"] += " 2>"
+    cfgd["error_part"] += " arq%(test)s.{0:s}".format(CONFIG["solution"]["stderr"]["extension"])
+    cfgd["suffix"] += "ERROR_SUFFIX: '.{0:s}'\n".format(CONFIG["solution"]["stderr"]["extension"])
+
+    cfgd["output_filter"] = ""
+    if CONFIG["solution"]["output"]["filter"] is not None and CONFIG["solution"]["output"]["filter"].lower() == "tokenize":
+        cfgd["output_filter"] = "TOKENIZER"
+
+
     cfg = open(os.path.join(ds, "tarefa.cfg"), "w")
     write_cfg(cfg, cfgd)
     cfg.close()
@@ -909,16 +971,15 @@ for release in CONFIG["releases"]:
         print_check("Copiando testes")
         dt = os.path.join(dshare, "testes")
         os.mkdir(dt)
-        if "open_tests" in shareable and shareable["open_tests"]:
-            for filename in tests["open"]:
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".out"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".err"), dt)
-        if "hidden_tests" in shareable and shareable["hidden_tests"]:
-            for filename in tests["hidden"]:
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".in"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".out"), dt)
-                shutil.copy(os.path.join(tmpdir, "tests", "arq" + filename + ".err"), dt)
+        for t in ["open", "hidden"]:
+            if t+"_tests" in shareable and shareable[t+"_tests"]:
+                for filename in tests[t]:
+                    args = list()
+                    args.extend(CONFIG["solution"]["input"]["extensions"])
+                    args.extend(CONFIG["solution"]["output"]["extensions"])
+                    args.append(CONFIG["solution"]["stderr"]["extension"])
+                    for ext in args:
+                        shutil.copy(os.path.join(tmpdir, "tests", "arq{0:s}.{1:s}".format(filename, ext)), dt)
         print_ok()
 
         if "aux" in shareable and shareable["aux"]:
