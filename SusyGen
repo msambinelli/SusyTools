@@ -268,6 +268,8 @@ parser.add_argument('--new', action='store_true',
                     help='Sobreescreve testes com gerador')
 parser.add_argument('--seq', action='store_true',
                     help='Executar sequencialmente')
+parser.add_argument('--quiet', action='store_true',
+                    help='Evitar saidas')
 args = parser.parse_args()
 
 ################################################################################
@@ -536,7 +538,9 @@ def wait_test(p, data):
 
             if diff:
                 print_error("Diferenças encontradas no {0:s}".format(d))
-                sys.stdout.writelines(diff)
+                global args
+                if not args.quiet:
+                    sys.stdout.writelines(diff)
                 return
         else:
             shutil.copy(result, reference)
