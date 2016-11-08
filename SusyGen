@@ -612,7 +612,8 @@ print_header("Limites")
 
 print_check("Verificando limite de CPU")
 if CONFIG["limits"]["cpu"] > 10:
-    print_error("{0:d}s! Limite do Susy: {1:d}s".format(CONFIG["limits"]["cpu"], 10))
+    print_warning("{0:d}s! Limite do Susy: {1:d}s".format(CONFIG["limits"]["cpu"], 10))
+    CONFIG["limits"]["cpu"] = 10
 else:
     print_ok(" OK {0:d}s".format(CONFIG["limits"]["cpu"]))
 
