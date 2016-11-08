@@ -523,7 +523,7 @@ def wait_test(p, data):
     data["stderr"].close()
 
     if p.returncode:
-        print_error("Erro na execução")
+        print_error("Erro na execução ({0:d})".format(p.returncode))
         return
 
     for d in data["difflist"]:
